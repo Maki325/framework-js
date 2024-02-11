@@ -1,0 +1,13 @@
+[package]
+name = "framework-js"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.79"
+swc = "0.273.3"
+swc_common = "0.33.17"
+swc_ecma_ast = "0.112.2"
+swc_ecma_parser = "0.143.3"
