@@ -15,3 +15,5 @@ https://github.com/vitejs/vite/blob/main/packages/vite/client.d.ts
 "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.js", "**/*.jsx"],
 https://stackoverflow.com/a/76870209/6105289
 
+How to get a template plugin project for SWC:
+https://swc.rs/docs/plugin/ecmascript/getting-started
