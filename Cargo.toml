@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.79"
 swc = "0.273.3"
+swc_core = { version = "0.90.*", features = ["ecma_plugin_transform"] }
 swc_common = "0.33.17"
 swc_ecma_ast = "0.112.2"
 swc_ecma_parser = "0.143.3"

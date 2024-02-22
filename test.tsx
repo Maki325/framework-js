@@ -1,4 +1,4 @@
-function Hello({ name }: { name: string }) {
+export function Hello({ name }: { name: string }): JSX.IntrinsicElements {
   return <div>Hello, {name}</div>;
 }
 

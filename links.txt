@@ -1,0 +1,17 @@
+https://www.npmjs.com/package/dom-expressions
+
+How they use 'dom-expressions' to create all intrinsic elements
+https://github.com/solidjs/solid/blob/main/packages/solid/package.json
+
+"jsxImportSource": "solid-js" - telling which source to use
+https://github.com/solidjs/templates/blob/main/ts/tsconfig.json
+https://www.typescriptlang.org/tsconfig#jsxImportSource
+https://www.typescriptlang.org/tsconfig#jsx
+https://www.typescriptlang.org/docs/handbook/jsx.html
+https://www.typescriptlang.org/docs/handbook/jsx.html#intrinsic-elements
+
+https://github.com/vitejs/vite/blob/main/packages/vite/client.d.ts
+
+"include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.js", "**/*.jsx"],
+https://stackoverflow.com/a/76870209/6105289
+

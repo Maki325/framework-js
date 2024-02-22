@@ -16,7 +16,7 @@
     "incremental": true,
     "noUncheckedIndexedAccess": true,
     "baseUrl": ".",
-    "jsxImportSource": "marko",
+    // "jsxImportSource": "marko",
     "paths": {
       "src/*": ["src/*"],
       "@/*": ["src/*"]
