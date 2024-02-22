@@ -17,3 +17,6 @@ https://stackoverflow.com/a/76870209/6105289
 
 How to get a template plugin project for SWC:
 https://swc.rs/docs/plugin/ecmascript/getting-started
+
+`transforms::testing::test_inline`
+Very important when figuring out how to apply plugins lol
