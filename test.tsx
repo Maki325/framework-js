@@ -1,5 +1,7 @@
-export function Hello({ name }: { name: string }): JSX.IntrinsicElements {
-  return <div>Hello, {name}</div>;
+function Wall() {
+  return <div>A</div>;
 }
 
-<Hello name={'Marko'} />;
+<div>
+  Hello <div>World</div>
+</div>;

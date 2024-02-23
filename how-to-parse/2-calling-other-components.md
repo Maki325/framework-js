@@ -38,6 +38,6 @@ function Navigation() {
 }
 
 function Layout() {
-  return `<main>${Navigation()}${Hello()}</main>`;
+  return `<main>${Navigation()}${Hello({name: 'Marko'})}</main>`;
 }
 ```
