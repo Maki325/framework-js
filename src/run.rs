@@ -5,7 +5,7 @@ use swc::{self, try_with_handler, PrintArgs};
 use swc_common::{util::take::Take, SourceMap, GLOBALS};
 use swc_core::ecma::visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  EsVersion, Expr, JSXElement, JSXElementChild, JSXElementName, Lit, Tpl, TplElement,
+  EsVersion, Expr, JSXElement, JSXElementChild, JSXElementName, JSXExpr, Lit, Tpl, TplElement,
 };
 use swc_ecma_parser::{Syntax, TsConfig};
 
@@ -62,7 +62,11 @@ impl TplWrapper {
     }
   }
 
-  pub fn build(self) -> Tpl {
+  pub fn build(mut self) -> Tpl {
+    if self.is_expr_next == false {
+      self.quasis.push(TplElement::dummy());
+    }
+
     return Tpl {
       exprs: self.exprs,
       quasis: self.quasis,
@@ -72,46 +76,43 @@ impl TplWrapper {
 }
 
 impl<'a> TransformVisitor<'a> {
+  fn transform_expr(&self, tpl_wrapper: &mut TplWrapper, expr: Expr) {
+    match expr {
+      Expr::Lit(ref lit) => {
+        let string = match lit {
+          Lit::Str(value) => value.value.as_str().to_owned(),
+          Lit::Bool(value) => value.value.to_string(),
+          Lit::Null(_) => "null".to_owned(),
+          Lit::Num(value) => value.value.to_string(),
+          Lit::BigInt(value) => value.value.to_string(),
+          Lit::Regex(_) => return tpl_wrapper.append_expr(Box::new(expr)),
+          Lit::JSXText(value) => value.value.as_str().to_owned(),
+        };
+        tpl_wrapper.append_quasi(string);
+      }
+      _ => tpl_wrapper.append_expr(Box::new(expr)),
+    }
+  }
+
   fn transform_element_child(&self, tpl_wrapper: &mut TplWrapper, element: &JSXElementChild) {
     match element {
       JSXElementChild::JSXElement(el) => {
         let transformed = self.transform(el);
 
-        match transformed {
-          Expr::Lit(ref lit) => {
-            let string = match lit {
-              Lit::Str(value) => value.value.as_str().to_owned(),
-              Lit::Bool(value) => value.value.to_string(),
-              Lit::Null(_) => "null".to_owned(),
-              Lit::Num(value) => value.value.to_string(),
-              Lit::BigInt(value) => value.value.to_string(),
-              Lit::Regex(_) => return tpl_wrapper.append_expr(Box::new(transformed)),
-              Lit::JSXText(value) => value.value.as_str().to_owned(),
-            };
-            tpl_wrapper.append_quasi(string);
-          }
-          _ => tpl_wrapper.append_expr(Box::new(transformed)),
-        }
-
-        // let code = self
-        //   .compiler
-        //   .print(&transformed, PrintArgs::default())
-        //   .unwrap()
-        //   .code;
-        // println!("Code: {code}");
+        self.transform_expr(tpl_wrapper, transformed);
       }
-      JSXElementChild::JSXExprContainer(_expr) => {
-        // TODO
-        unimplemented!();
+      JSXElementChild::JSXExprContainer(container) => {
+        if let JSXExpr::Expr(expr) = &container.expr {
+          self.transform_expr(tpl_wrapper, *expr.clone());
+        }
       }
       JSXElementChild::JSXFragment(f) => {
         for child in &f.children {
           self.transform_element_child(tpl_wrapper, child);
         }
       }
-      JSXElementChild::JSXSpreadChild(_sc) => {
-        // TODO
-        unimplemented!();
+      JSXElementChild::JSXSpreadChild(sc) => {
+        tpl_wrapper.append_expr(sc.expr.clone());
       }
       JSXElementChild::JSXText(text) => {
         tpl_wrapper.append_quasi(text.value.as_str().to_owned());
@@ -139,9 +140,9 @@ impl<'a> TransformVisitor<'a> {
       None
     };
 
-    let mut tpl_wrapper = TplWrapper::new();
+    let mut children = TplWrapper::new();
     for element in &jsx_element.children {
-      self.transform_element_child(&mut tpl_wrapper, element);
+      self.transform_element_child(&mut children, element);
     }
 
     if let Some(_custom_name) = custom_name {
@@ -154,68 +155,35 @@ impl<'a> TransformVisitor<'a> {
         .unwrap()
         .code;
 
-      if tpl_wrapper.exprs.len() == 0 {
+      if children.exprs.len() == 0 {
         let html = format!(
           "<{name}>{}</{name}>",
-          tpl_wrapper
+          children
             .quasis
             .pop()
             .map_or(String::new(), |q| q.raw.as_str().to_owned())
         );
-        let a = Expr::Lit(Lit::Str(html.into()));
-
-        println!("Built expr str: {a:#?}");
-
-        return a;
+        let expr_lit = Expr::Lit(Lit::Str(html.into()));
+        println!("Built expr str: {expr_lit:#?}");
+        return expr_lit;
       }
 
-      let mut outer = TplWrapper::new();
+      let mut shell = TplWrapper::new();
 
-      outer.append_quasi(format!("<{name}>"));
-      outer.append_expr(Box::new(Expr::Tpl(tpl_wrapper.build())));
-      outer.append_quasi(format!("</{name}>"));
+      shell.append_quasi(format!("<{name}>"));
+      shell.append_expr(Box::new(Expr::Tpl(children.build())));
+      shell.append_quasi(format!("</{name}>"));
 
-      // return Expr::Lit(Lit::Str(html.into()));
-      let a = Expr::Tpl(outer.build());
-
-      println!("Built expr tpl: {a:#?}");
-
-      return a;
+      let expr_tpl = Expr::Tpl(shell.build());
+      println!("Built expr tpl: {expr_tpl:#?}");
+      return expr_tpl;
     }
   }
 }
 
 impl<'a> VisitMut for TransformVisitor<'a> {
-  // If `visit_mut_lit` is implemented, this function is skipped
-  // fn visit_mut_str(&mut self, n: &mut swc_ecma_ast::Str) {
-  //   n.visit_mut_children_with(self);
-  //   println!("visit_mut_str {n:#?}");
-  //   n.value = "lit :)".into();
-  //   n.raw = None;
-  // }
-
-  // fn visit_mut_jsx_element(&mut self, n: &mut swc_ecma_ast::JSXElement) {
-  //   n.visit_mut_children_with(self);
-  //   // println!("visit_mut_jsx_element {n:?}");
-  // }
-
-  // fn visit_mut_jsx_expr_container(&mut self, n: &mut swc_ecma_ast::JSXExprContainer) {
-  //   println!("visit_mut_jsx_expr_container {n:?}");
-  //   println!(
-  //     "{}",
-  //     self.compiler.print(&*n, PrintArgs::default()).unwrap().code
-  //   );
-  //   n.visit_mut_children_with(self);
-  // }
-
-  // fn visit_mut_exprs(&mut self, n: &mut Vec<Box<swc_ecma_ast::Expr>>) {
-  //   n.visit_mut_children_with(self);
-  //   println!("visit_mut_exprs {n:?}");
-  // }
-
   fn visit_mut_expr(&mut self, n: &mut Expr) {
     n.visit_mut_children_with(self);
-    // println!("visit_mut_expr {n:?}\n");
 
     let replace = if let Expr::JSXElement(jsx_element) = n {
       Some(self.transform(jsx_element))
@@ -226,17 +194,7 @@ impl<'a> VisitMut for TransformVisitor<'a> {
     if let Some(replace) = replace {
       n.map_with_mut(|_| replace);
     }
-    // n.map_with_mut(|_self| swc_ecma_ast::Expr::Lit(swc_ecma_ast::Lit::Num(5.into())));
   }
-
-  // fn visit_mut_expr_stmt(&mut self, n: &mut swc_ecma_ast::ExprStmt) {
-  //   n.visit_mut_children_with(self);
-  //   println!("visit_mut_expr_stmt {n:?}");
-  // }
-
-  // fn visit_mut_tpl(&mut self,n: &mut swc_ecma_ast::Tpl) {
-
-  // }
 }
 
 pub fn main() {
