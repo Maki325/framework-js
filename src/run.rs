@@ -4,47 +4,117 @@ use anyhow::Context;
 use swc::{self, try_with_handler, PrintArgs};
 use swc_common::{util::take::Take, SourceMap, GLOBALS};
 use swc_core::ecma::visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
-use swc_ecma_ast::{EsVersion, Expr, JSXElement, JSXElementChild, JSXElementName, Lit, Tpl};
+use swc_ecma_ast::{
+  EsVersion, Expr, JSXElement, JSXElementChild, JSXElementName, Lit, Tpl, TplElement,
+};
 use swc_ecma_parser::{Syntax, TsConfig};
 
 pub struct TransformVisitor<'a> {
   compiler: &'a swc::Compiler,
 }
 
+pub struct TplWrapper {
+  pub exprs: Vec<Box<Expr>>,
+  pub quasis: Vec<TplElement>,
+  pub is_expr_next: bool,
+}
+
+impl TplWrapper {
+  pub fn new() -> TplWrapper {
+    return TplWrapper {
+      exprs: vec![],
+      quasis: vec![],
+      is_expr_next: false,
+    };
+  }
+  pub fn append_expr(&mut self, expr: Box<Expr>) {
+    if self.is_expr_next {
+      self.exprs.push(expr);
+      self.is_expr_next = false;
+    } else {
+      self.quasis.push(TplElement {
+        raw: "".into(),
+        ..TplElement::dummy()
+      });
+      self.exprs.push(expr);
+      self.is_expr_next = false;
+    }
+  }
+
+  pub fn append_quasi<S: AsRef<str>>(&mut self, quasi: S) {
+    if self.is_expr_next {
+      let last = self.quasis.pop().unwrap();
+
+      let mut string = last.raw.as_str().to_owned();
+      string.push_str(quasi.as_ref());
+      self.quasis.push(TplElement {
+        raw: string.into(),
+        ..TplElement::dummy()
+      });
+
+      self.is_expr_next = true;
+    } else {
+      self.quasis.push(TplElement {
+        raw: quasi.as_ref().into(),
+        ..TplElement::dummy()
+      });
+      self.is_expr_next = true;
+    }
+  }
+
+  pub fn build(self) -> Tpl {
+    return Tpl {
+      exprs: self.exprs,
+      quasis: self.quasis,
+      ..Tpl::dummy()
+    };
+  }
+}
+
 impl<'a> TransformVisitor<'a> {
-  fn transform_element_child(&self, element: &JSXElementChild) -> String {
+  fn transform_element_child(&self, tpl_wrapper: &mut TplWrapper, element: &JSXElementChild) {
     match element {
       JSXElementChild::JSXElement(el) => {
         let transformed = self.transform(el);
 
-        let code = self
-          .compiler
-          .print(&transformed, PrintArgs::default())
-          .unwrap()
-          .code;
+        match transformed {
+          Expr::Lit(ref lit) => {
+            let string = match lit {
+              Lit::Str(value) => value.value.as_str().to_owned(),
+              Lit::Bool(value) => value.value.to_string(),
+              Lit::Null(_) => "null".to_owned(),
+              Lit::Num(value) => value.value.to_string(),
+              Lit::BigInt(value) => value.value.to_string(),
+              Lit::Regex(_) => return tpl_wrapper.append_expr(Box::new(transformed)),
+              Lit::JSXText(value) => value.value.as_str().to_owned(),
+            };
+            tpl_wrapper.append_quasi(string);
+          }
+          _ => tpl_wrapper.append_expr(Box::new(transformed)),
+        }
 
-        println!("Code: {code}");
-
-        return code;
+        // let code = self
+        //   .compiler
+        //   .print(&transformed, PrintArgs::default())
+        //   .unwrap()
+        //   .code;
+        // println!("Code: {code}");
       }
-      JSXElementChild::JSXExprContainer(expr) => {
+      JSXElementChild::JSXExprContainer(_expr) => {
         // TODO
         unimplemented!();
       }
       JSXElementChild::JSXFragment(f) => {
-        let mut children = vec![];
         for child in &f.children {
-          children.push(self.transform_element_child(child));
+          self.transform_element_child(tpl_wrapper, child);
         }
-
-        return children.join("");
       }
-      JSXElementChild::JSXSpreadChild(sc) => {
+      JSXElementChild::JSXSpreadChild(_sc) => {
         // TODO
         unimplemented!();
       }
       JSXElementChild::JSXText(text) => {
-        return text.value.as_str().to_owned();
+        tpl_wrapper.append_quasi(text.value.as_str().to_owned());
       }
     }
   }
@@ -69,9 +139,9 @@ impl<'a> TransformVisitor<'a> {
       None
     };
 
-    let mut output = vec![];
+    let mut tpl_wrapper = TplWrapper::new();
     for element in &jsx_element.children {
-      output.push(self.transform_element_child(element));
+      self.transform_element_child(&mut tpl_wrapper, element);
     }
 
     if let Some(_custom_name) = custom_name {
@@ -84,9 +154,33 @@ impl<'a> TransformVisitor<'a> {
         .unwrap()
         .code;
 
-      let html = format!("<{name}>{}</{name}>", output.join(""));
-      println!("HTML: {html}");
-      return Expr::Lit(Lit::Str(html.into()));
+      if tpl_wrapper.exprs.len() == 0 {
+        let html = format!(
+          "<{name}>{}</{name}>",
+          tpl_wrapper
+            .quasis
+            .pop()
+            .map_or(String::new(), |q| q.raw.as_str().to_owned())
+        );
+        let a = Expr::Lit(Lit::Str(html.into()));
+
+        println!("Built expr str: {a:#?}");
+
+        return a;
+      }
+
+      let mut outer = TplWrapper::new();
+
+      outer.append_quasi(format!("<{name}>"));
+      outer.append_expr(Box::new(Expr::Tpl(tpl_wrapper.build())));
+      outer.append_quasi(format!("</{name}>"));
+
+      // return Expr::Lit(Lit::Str(html.into()));
+      let a = Expr::Tpl(outer.build());
+
+      println!("Built expr tpl: {a:#?}");
+
+      return a;
     }
   }
 }

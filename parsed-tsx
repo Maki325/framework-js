@@ -120,7 +120,7 @@ Module(
                                         ),
                                         ctxt: #0,
                                     },
-                                    value: "<div>\n\n  Hello \"<div>World</div>\"\n\n</div>",
+                                    value: "<div>\n\n  Hello <div>World</div>\n\n</div>",
                                     raw: None,
                                 },
                             ),
