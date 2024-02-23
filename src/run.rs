@@ -5,7 +5,8 @@ use swc::{self, try_with_handler, PrintArgs};
 use swc_common::{util::take::Take, SourceMap, GLOBALS};
 use swc_core::ecma::visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  EsVersion, Expr, JSXElement, JSXElementChild, JSXElementName, JSXExpr, Lit, Tpl, TplElement,
+  CallExpr, Callee, EsVersion, Expr, ExprOrSpread, JSXElement, JSXElementChild, JSXElementName,
+  JSXExpr, KeyValueProp, Lit, ObjectLit, Prop, Tpl, TplElement,
 };
 use swc_ecma_parser::{Syntax, TsConfig};
 
@@ -145,9 +146,37 @@ impl<'a> TransformVisitor<'a> {
       self.transform_element_child(&mut children, element);
     }
 
-    if let Some(_custom_name) = custom_name {
-      // TODO
-      unimplemented!();
+    if let Some(custom_name) = custom_name {
+      let expr = if children.exprs.len() == 0 {
+        let html = children
+          .quasis
+          .pop()
+          .map_or(String::new(), |q| q.raw.as_str().to_owned());
+        Expr::Lit(Lit::Str(html.into()))
+      } else {
+        Expr::Tpl(children.build())
+      };
+
+      let props = swc_ecma_ast::PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+        key: swc_ecma_ast::PropName::Ident("children".into()),
+        value: Box::new(expr),
+      })));
+
+      let expr = ExprOrSpread {
+        spread: None,
+        expr: Box::new(Expr::Object(ObjectLit {
+          props: vec![props],
+          ..ObjectLit::dummy()
+        })),
+      };
+
+      let call = CallExpr {
+        callee: Callee::Expr(Box::new(Expr::Ident(custom_name.into()))),
+        args: vec![expr],
+        ..CallExpr::dummy()
+      };
+
+      return Expr::Call(call);
     } else {
       let name = self
         .compiler
@@ -164,7 +193,6 @@ impl<'a> TransformVisitor<'a> {
             .map_or(String::new(), |q| q.raw.as_str().to_owned())
         );
         let expr_lit = Expr::Lit(Lit::Str(html.into()));
-        println!("Built expr str: {expr_lit:#?}");
         return expr_lit;
       }
 
@@ -175,7 +203,6 @@ impl<'a> TransformVisitor<'a> {
       shell.append_quasi(format!("</{name}>"));
 
       let expr_tpl = Expr::Tpl(shell.build());
-      println!("Built expr tpl: {expr_tpl:#?}");
       return expr_tpl;
     }
   }

@@ -5,7 +5,7 @@ Module(
                 1,
             ),
             hi: BytePos(
-                83,
+                157,
             ),
             ctxt: #0,
         },
@@ -29,14 +29,162 @@ Module(
                             },
                             declare: false,
                             function: Function {
-                                params: [],
+                                params: [
+                                    Param {
+                                        span: Span {
+                                            lo: BytePos(
+                                                15,
+                                            ),
+                                            hi: BytePos(
+                                                49,
+                                            ),
+                                            ctxt: #0,
+                                        },
+                                        decorators: [],
+                                        pat: Object(
+                                            ObjectPat {
+                                                span: Span {
+                                                    lo: BytePos(
+                                                        15,
+                                                    ),
+                                                    hi: BytePos(
+                                                        49,
+                                                    ),
+                                                    ctxt: #0,
+                                                },
+                                                props: [
+                                                    Assign(
+                                                        AssignPatProp {
+                                                            span: Span {
+                                                                lo: BytePos(
+                                                                    17,
+                                                                ),
+                                                                hi: BytePos(
+                                                                    25,
+                                                                ),
+                                                                ctxt: #0,
+                                                            },
+                                                            key: BindingIdent {
+                                                                id: Ident {
+                                                                    span: Span {
+                                                                        lo: BytePos(
+                                                                            17,
+                                                                        ),
+                                                                        hi: BytePos(
+                                                                            25,
+                                                                        ),
+                                                                        ctxt: #0,
+                                                                    },
+                                                                    sym: "children",
+                                                                    optional: false,
+                                                                },
+                                                                type_ann: None,
+                                                            },
+                                                            value: None,
+                                                        },
+                                                    ),
+                                                ],
+                                                optional: false,
+                                                type_ann: Some(
+                                                    TsTypeAnn {
+                                                        span: Span {
+                                                            lo: BytePos(
+                                                                27,
+                                                            ),
+                                                            hi: BytePos(
+                                                                49,
+                                                            ),
+                                                            ctxt: #0,
+                                                        },
+                                                        type_ann: TsTypeLit(
+                                                            TsTypeLit {
+                                                                span: Span {
+                                                                    lo: BytePos(
+                                                                        29,
+                                                                    ),
+                                                                    hi: BytePos(
+                                                                        49,
+                                                                    ),
+                                                                    ctxt: #0,
+                                                                },
+                                                                members: [
+                                                                    TsPropertySignature(
+                                                                        TsPropertySignature {
+                                                                            span: Span {
+                                                                                lo: BytePos(
+                                                                                    31,
+                                                                                ),
+                                                                                hi: BytePos(
+                                                                                    47,
+                                                                                ),
+                                                                                ctxt: #0,
+                                                                            },
+                                                                            readonly: false,
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            31,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            39,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "children",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            computed: false,
+                                                                            optional: false,
+                                                                            init: None,
+                                                                            params: [],
+                                                                            type_ann: Some(
+                                                                                TsTypeAnn {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            39,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            47,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    type_ann: TsKeywordType(
+                                                                                        TsKeywordType {
+                                                                                            span: Span {
+                                                                                                lo: BytePos(
+                                                                                                    41,
+                                                                                                ),
+                                                                                                hi: BytePos(
+                                                                                                    47,
+                                                                                                ),
+                                                                                                ctxt: #0,
+                                                                                            },
+                                                                                            kind: TsStringKeyword,
+                                                                                        },
+                                                                                    ),
+                                                                                },
+                                                                            ),
+                                                                            type_params: None,
+                                                                        },
+                                                                    ),
+                                                                ],
+                                                            },
+                                                        ),
+                                                    },
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ],
                                 decorators: [],
                                 span: Span {
                                     lo: BytePos(
                                         1,
                                     ),
                                     hi: BytePos(
-                                        43,
+                                        77,
                                     ),
                                     ctxt: #0,
                                 },
@@ -44,10 +192,10 @@ Module(
                                     BlockStmt {
                                         span: Span {
                                             lo: BytePos(
-                                                17,
+                                                51,
                                             ),
                                             hi: BytePos(
-                                                43,
+                                                77,
                                             ),
                                             ctxt: #0,
                                         },
@@ -56,10 +204,10 @@ Module(
                                                 ReturnStmt {
                                                     span: Span {
                                                         lo: BytePos(
-                                                            21,
+                                                            55,
                                                         ),
                                                         hi: BytePos(
-                                                            41,
+                                                            75,
                                                         ),
                                                         ctxt: #0,
                                                     },
@@ -101,29 +249,191 @@ Module(
                     ExprStmt {
                         span: Span {
                             lo: BytePos(
-                                45,
+                                79,
                             ),
                             hi: BytePos(
-                                83,
+                                157,
                             ),
                             ctxt: #0,
                         },
-                        expr: Lit(
-                            Str(
-                                Str {
-                                    span: Span {
-                                        lo: BytePos(
-                                            0,
-                                        ),
-                                        hi: BytePos(
-                                            0,
-                                        ),
-                                        ctxt: #0,
-                                    },
-                                    value: "<div>\n\n  Hello <div>World</div>\n\n</div>",
-                                    raw: None,
+                        expr: Tpl(
+                            Tpl {
+                                span: Span {
+                                    lo: BytePos(
+                                        0,
+                                    ),
+                                    hi: BytePos(
+                                        0,
+                                    ),
+                                    ctxt: #0,
                                 },
-                            ),
+                                exprs: [
+                                    Tpl(
+                                        Tpl {
+                                            span: Span {
+                                                lo: BytePos(
+                                                    0,
+                                                ),
+                                                hi: BytePos(
+                                                    0,
+                                                ),
+                                                ctxt: #0,
+                                            },
+                                            exprs: [
+                                                Call(
+                                                    CallExpr {
+                                                        span: Span {
+                                                            lo: BytePos(
+                                                                0,
+                                                            ),
+                                                            hi: BytePos(
+                                                                0,
+                                                            ),
+                                                            ctxt: #0,
+                                                        },
+                                                        callee: Expr(
+                                                            Ident(
+                                                                Ident {
+                                                                    span: Span {
+                                                                        lo: BytePos(
+                                                                            0,
+                                                                        ),
+                                                                        hi: BytePos(
+                                                                            0,
+                                                                        ),
+                                                                        ctxt: #0,
+                                                                    },
+                                                                    sym: "Wall",
+                                                                    optional: false,
+                                                                },
+                                                            ),
+                                                        ),
+                                                        args: [
+                                                            ExprOrSpread {
+                                                                spread: None,
+                                                                expr: Object(
+                                                                    ObjectLit {
+                                                                        span: Span {
+                                                                            lo: BytePos(
+                                                                                0,
+                                                                            ),
+                                                                            hi: BytePos(
+                                                                                0,
+                                                                            ),
+                                                                            ctxt: #0,
+                                                                        },
+                                                                        props: [
+                                                                            Prop(
+                                                                                KeyValue(
+                                                                                    KeyValueProp {
+                                                                                        key: Ident(
+                                                                                            Ident {
+                                                                                                span: Span {
+                                                                                                    lo: BytePos(
+                                                                                                        0,
+                                                                                                    ),
+                                                                                                    hi: BytePos(
+                                                                                                        0,
+                                                                                                    ),
+                                                                                                    ctxt: #0,
+                                                                                                },
+                                                                                                sym: "children",
+                                                                                                optional: false,
+                                                                                            },
+                                                                                        ),
+                                                                                        value: Lit(
+                                                                                            Str(
+                                                                                                Str {
+                                                                                                    span: Span {
+                                                                                                        lo: BytePos(
+                                                                                                            0,
+                                                                                                        ),
+                                                                                                        hi: BytePos(
+                                                                                                            0,
+                                                                                                        ),
+                                                                                                        ctxt: #0,
+                                                                                                    },
+                                                                                                    value: "\n\n    <div>Marko</div>\n\n  ",
+                                                                                                    raw: None,
+                                                                                                },
+                                                                                            ),
+                                                                                        ),
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        ],
+                                                                    },
+                                                                ),
+                                                            },
+                                                        ],
+                                                        type_args: None,
+                                                    },
+                                                ),
+                                            ],
+                                            quasis: [
+                                                TplElement {
+                                                    span: Span {
+                                                        lo: BytePos(
+                                                            0,
+                                                        ),
+                                                        hi: BytePos(
+                                                            0,
+                                                        ),
+                                                        ctxt: #0,
+                                                    },
+                                                    tail: false,
+                                                    cooked: None,
+                                                    raw: "\n\n  Hello <div>World</div>\n\n  ",
+                                                },
+                                                TplElement {
+                                                    span: Span {
+                                                        lo: BytePos(
+                                                            0,
+                                                        ),
+                                                        hi: BytePos(
+                                                            0,
+                                                        ),
+                                                        ctxt: #0,
+                                                    },
+                                                    tail: false,
+                                                    cooked: None,
+                                                    raw: "\n\n",
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                ],
+                                quasis: [
+                                    TplElement {
+                                        span: Span {
+                                            lo: BytePos(
+                                                0,
+                                            ),
+                                            hi: BytePos(
+                                                0,
+                                            ),
+                                            ctxt: #0,
+                                        },
+                                        tail: false,
+                                        cooked: None,
+                                        raw: "<div>",
+                                    },
+                                    TplElement {
+                                        span: Span {
+                                            lo: BytePos(
+                                                0,
+                                            ),
+                                            hi: BytePos(
+                                                0,
+                                            ),
+                                            ctxt: #0,
+                                        },
+                                        tail: false,
+                                        cooked: None,
+                                        raw: "</div>",
+                                    },
+                                ],
+                            },
                         ),
                     },
                 ),
