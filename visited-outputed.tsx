@@ -3,7 +3,7 @@ function Wall({ children }: {
 }) {
     return "<div>A</div>";
 }
-`<div>${`
+`<div>
 
   Hello <div>World</div>
 
@@ -11,4 +11,4 @@ function Wall({ children }: {
     children: "\n\n    <div>Marko</div>\n\n  "
 })}
 
-`}</div>`;
+</div>`;

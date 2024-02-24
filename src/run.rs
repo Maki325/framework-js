@@ -65,7 +65,14 @@ impl TplWrapper {
 
   pub fn build(mut self) -> Tpl {
     if self.is_expr_next == false {
-      self.quasis.push(TplElement::dummy());
+      self.quasis.push(TplElement {
+        tail: true,
+        ..TplElement::dummy()
+      });
+    } else {
+      if let Some(quasi) = self.quasis.last_mut() {
+        quasi.tail = true;
+      }
     }
 
     return Tpl {
@@ -90,6 +97,32 @@ impl<'a> TransformVisitor<'a> {
           Lit::JSXText(value) => value.value.as_str().to_owned(),
         };
         tpl_wrapper.append_quasi(string);
+      }
+      Expr::Tpl(Tpl {
+        mut exprs,
+        mut quasis,
+        ..
+      }) => {
+        exprs.reverse();
+        quasis.reverse();
+        let mut take_quasi = true;
+        loop {
+          if take_quasi {
+            let quasi = quasis.pop();
+            match quasi {
+              None => return,
+              Some(quasi) => tpl_wrapper.append_quasi(quasi.raw.as_str()),
+            }
+            take_quasi = false;
+          } else {
+            let expr = exprs.pop();
+            match expr {
+              None => return,
+              Some(expr) => tpl_wrapper.append_expr(expr),
+            }
+            take_quasi = true;
+          }
+        }
       }
       _ => tpl_wrapper.append_expr(Box::new(expr)),
     }
@@ -199,7 +232,7 @@ impl<'a> TransformVisitor<'a> {
       let mut shell = TplWrapper::new();
 
       shell.append_quasi(format!("<{name}>"));
-      shell.append_expr(Box::new(Expr::Tpl(children.build())));
+      self.transform_expr(&mut shell, Expr::Tpl(children.build()));
       shell.append_quasi(format!("</{name}>"));
 
       let expr_tpl = Expr::Tpl(shell.build());
