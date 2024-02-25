@@ -5,7 +5,7 @@ Module(
                 1,
             ),
             hi: BytePos(
-                296,
+                525,
             ),
             ctxt: #0,
         },
@@ -529,7 +529,7 @@ Module(
                                 163,
                             ),
                             hi: BytePos(
-                                296,
+                                525,
                             ),
                             ctxt: #0,
                         },
@@ -622,6 +622,514 @@ Module(
                                                                                         raw: None,
                                                                                     },
                                                                                 ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            261,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            268,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "maki325",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Array(
+                                                                                ArrayLit {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            270,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            296,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    elems: [
+                                                                                        Some(
+                                                                                            ExprOrSpread {
+                                                                                                spread: None,
+                                                                                                expr: Lit(
+                                                                                                    Str(
+                                                                                                        Str {
+                                                                                                            span: Span {
+                                                                                                                lo: BytePos(
+                                                                                                                    271,
+                                                                                                                ),
+                                                                                                                hi: BytePos(
+                                                                                                                    275,
+                                                                                                                ),
+                                                                                                                ctxt: #0,
+                                                                                                            },
+                                                                                                            value: "is",
+                                                                                                            raw: Some(
+                                                                                                                "'is'",
+                                                                                                            ),
+                                                                                                        },
+                                                                                                    ),
+                                                                                                ),
+                                                                                            },
+                                                                                        ),
+                                                                                        Some(
+                                                                                            ExprOrSpread {
+                                                                                                spread: None,
+                                                                                                expr: Lit(
+                                                                                                    Str(
+                                                                                                        Str {
+                                                                                                            span: Span {
+                                                                                                                lo: BytePos(
+                                                                                                                    277,
+                                                                                                                ),
+                                                                                                                hi: BytePos(
+                                                                                                                    282,
+                                                                                                                ),
+                                                                                                                ctxt: #0,
+                                                                                                            },
+                                                                                                            value: "the",
+                                                                                                            raw: Some(
+                                                                                                                "'the'",
+                                                                                                            ),
+                                                                                                        },
+                                                                                                    ),
+                                                                                                ),
+                                                                                            },
+                                                                                        ),
+                                                                                        Some(
+                                                                                            ExprOrSpread {
+                                                                                                spread: None,
+                                                                                                expr: Lit(
+                                                                                                    Str(
+                                                                                                        Str {
+                                                                                                            span: Span {
+                                                                                                                lo: BytePos(
+                                                                                                                    284,
+                                                                                                                ),
+                                                                                                                hi: BytePos(
+                                                                                                                    290,
+                                                                                                                ),
+                                                                                                                ctxt: #0,
+                                                                                                            },
+                                                                                                            value: "best",
+                                                                                                            raw: Some(
+                                                                                                                "'best'",
+                                                                                                            ),
+                                                                                                        },
+                                                                                                    ),
+                                                                                                ),
+                                                                                            },
+                                                                                        ),
+                                                                                        Some(
+                                                                                            ExprOrSpread {
+                                                                                                spread: None,
+                                                                                                expr: Lit(
+                                                                                                    Str(
+                                                                                                        Str {
+                                                                                                            span: Span {
+                                                                                                                lo: BytePos(
+                                                                                                                    292,
+                                                                                                                ),
+                                                                                                                hi: BytePos(
+                                                                                                                    295,
+                                                                                                                ),
+                                                                                                                ctxt: #0,
+                                                                                                            },
+                                                                                                            value: "!",
+                                                                                                            raw: Some(
+                                                                                                                "'!'",
+                                                                                                            ),
+                                                                                                        },
+                                                                                                    ),
+                                                                                                ),
+                                                                                            },
+                                                                                        ),
+                                                                                    ],
+                                                                                },
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            302,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            307,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "hello",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Lit(
+                                                                                Str(
+                                                                                    Str {
+                                                                                        span: Span {
+                                                                                            lo: BytePos(
+                                                                                                308,
+                                                                                            ),
+                                                                                            hi: BytePos(
+                                                                                                315,
+                                                                                            ),
+                                                                                            ctxt: #0,
+                                                                                        },
+                                                                                        value: "world",
+                                                                                        raw: Some(
+                                                                                            "\"world\"",
+                                                                                        ),
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            320,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            326,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "number",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Lit(
+                                                                                Num(
+                                                                                    Number {
+                                                                                        span: Span {
+                                                                                            lo: BytePos(
+                                                                                                328,
+                                                                                            ),
+                                                                                            hi: BytePos(
+                                                                                                329,
+                                                                                            ),
+                                                                                            ctxt: #0,
+                                                                                        },
+                                                                                        value: 5.0,
+                                                                                        raw: Some(
+                                                                                            "5",
+                                                                                        ),
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            335,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            341,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "truthy",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Lit(
+                                                                                Bool(
+                                                                                    Bool {
+                                                                                        span: Span {
+                                                                                            lo: BytePos(
+                                                                                                0,
+                                                                                            ),
+                                                                                            hi: BytePos(
+                                                                                                0,
+                                                                                            ),
+                                                                                            ctxt: #0,
+                                                                                        },
+                                                                                        value: true,
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            346,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            350,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "bool",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Lit(
+                                                                                Bool(
+                                                                                    Bool {
+                                                                                        span: Span {
+                                                                                            lo: BytePos(
+                                                                                                352,
+                                                                                            ),
+                                                                                            hi: BytePos(
+                                                                                                357,
+                                                                                            ),
+                                                                                            ctxt: #0,
+                                                                                        },
+                                                                                        value: false,
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            363,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            368,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "nully",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Lit(
+                                                                                Null(
+                                                                                    Null {
+                                                                                        span: Span {
+                                                                                            lo: BytePos(
+                                                                                                370,
+                                                                                            ),
+                                                                                            hi: BytePos(
+                                                                                                374,
+                                                                                            ),
+                                                                                            ctxt: #0,
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            380,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            382,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "re",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Lit(
+                                                                                Regex(
+                                                                                    Regex {
+                                                                                        span: Span {
+                                                                                            lo: BytePos(
+                                                                                                384,
+                                                                                            ),
+                                                                                            hi: BytePos(
+                                                                                                392,
+                                                                                            ),
+                                                                                            ctxt: #0,
+                                                                                        },
+                                                                                        exp: "hello",
+                                                                                        flags: "m",
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            398,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            410,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "jsxIntrinsic",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Lit(
+                                                                                Str(
+                                                                                    Str {
+                                                                                        span: Span {
+                                                                                            lo: BytePos(
+                                                                                                0,
+                                                                                            ),
+                                                                                            hi: BytePos(
+                                                                                                0,
+                                                                                            ),
+                                                                                            ctxt: #0,
+                                                                                        },
+                                                                                        value: "<h1>Maki325 is the best</h1>",
+                                                                                        raw: None,
+                                                                                    },
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                Prop(
+                                                                    KeyValue(
+                                                                        KeyValueProp {
+                                                                            key: Ident(
+                                                                                Ident {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            446,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            462,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    sym: "jsxCustomElement",
+                                                                                    optional: false,
+                                                                                },
+                                                                            ),
+                                                                            value: Call(
+                                                                                CallExpr {
+                                                                                    span: Span {
+                                                                                        lo: BytePos(
+                                                                                            0,
+                                                                                        ),
+                                                                                        hi: BytePos(
+                                                                                            0,
+                                                                                        ),
+                                                                                        ctxt: #0,
+                                                                                    },
+                                                                                    callee: Expr(
+                                                                                        Ident(
+                                                                                            Ident {
+                                                                                                span: Span {
+                                                                                                    lo: BytePos(
+                                                                                                        0,
+                                                                                                    ),
+                                                                                                    hi: BytePos(
+                                                                                                        0,
+                                                                                                    ),
+                                                                                                    ctxt: #0,
+                                                                                                },
+                                                                                                sym: "Wall",
+                                                                                                optional: false,
+                                                                                            },
+                                                                                        ),
+                                                                                    ),
+                                                                                    args: [
+                                                                                        ExprOrSpread {
+                                                                                            spread: None,
+                                                                                            expr: Object(
+                                                                                                ObjectLit {
+                                                                                                    span: Span {
+                                                                                                        lo: BytePos(
+                                                                                                            0,
+                                                                                                        ),
+                                                                                                        hi: BytePos(
+                                                                                                            0,
+                                                                                                        ),
+                                                                                                        ctxt: #0,
+                                                                                                    },
+                                                                                                    props: [
+                                                                                                        Prop(
+                                                                                                            KeyValue(
+                                                                                                                KeyValueProp {
+                                                                                                                    key: Ident(
+                                                                                                                        Ident {
+                                                                                                                            span: Span {
+                                                                                                                                lo: BytePos(
+                                                                                                                                    0,
+                                                                                                                                ),
+                                                                                                                                hi: BytePos(
+                                                                                                                                    0,
+                                                                                                                                ),
+                                                                                                                                ctxt: #0,
+                                                                                                                            },
+                                                                                                                            sym: "children",
+                                                                                                                            optional: false,
+                                                                                                                        },
+                                                                                                                    ),
+                                                                                                                    value: Lit(
+                                                                                                                        Str(
+                                                                                                                            Str {
+                                                                                                                                span: Span {
+                                                                                                                                    lo: BytePos(
+                                                                                                                                        0,
+                                                                                                                                    ),
+                                                                                                                                    hi: BytePos(
+                                                                                                                                        0,
+                                                                                                                                    ),
+                                                                                                                                    ctxt: #0,
+                                                                                                                                },
+                                                                                                                                value: "Maki325",
+                                                                                                                                raw: None,
+                                                                                                                            },
+                                                                                                                        ),
+                                                                                                                    ),
+                                                                                                                },
+                                                                                                            ),
+                                                                                                        ),
+                                                                                                    ],
+                                                                                                },
+                                                                                            ),
+                                                                                        },
+                                                                                    ],
+                                                                                    type_args: None,
+                                                                                },
                                                                             ),
                                                                         },
                                                                     ),

@@ -21,7 +21,23 @@ const props: {
   </div>
 
   ${Wall({
-    children: "\n\n    <div>Marko</div>\n\n  "
+    children: "\n\n    <div>Marko</div>\n\n  ",
+    maki325: [
+        'is',
+        'the',
+        'best',
+        '!'
+    ],
+    hello: "world",
+    number: 5,
+    truthy: true,
+    bool: false,
+    nully: null,
+    re: /hello/m,
+    jsxIntrinsic: "<h1>Maki325 is the best</h1>",
+    jsxCustomElement: Wall({
+        children: "Maki325"
+    })
 })}
 
 </div>`;

@@ -7,7 +7,7 @@ use swc_common::{util::take::Take, SourceMap, GLOBALS};
 use swc_core::ecma::visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
 use swc_ecma_ast::{
   CallExpr, Callee, EsVersion, Expr, ExprOrSpread, JSXAttrOrSpread, JSXAttrValue, JSXElement,
-  JSXElementName, JSXExpr, KeyValueProp, Lit, ObjectLit, Prop,
+  JSXElementName, JSXExpr, KeyValueProp, Lit, ObjectLit, Prop, PropName, PropOrSpread,
 };
 use swc_ecma_parser::{Syntax, TsConfig};
 
@@ -61,12 +61,58 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
       Expr::Tpl(children.build())
     };
 
-    let children_prop = swc_ecma_ast::PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-      key: swc_ecma_ast::PropName::Ident("children".into()),
+    let children_prop = PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+      key: PropName::Ident("children".into()),
       value: Box::new(expr),
     })));
 
-    let props = vec![children_prop];
+    let mut props = vec![children_prop];
+
+    for attr in opening.attrs {
+      let attr = match attr {
+        JSXAttrOrSpread::SpreadElement(spread) => {
+          props.push(PropOrSpread::Spread(spread));
+          continue;
+        }
+        JSXAttrOrSpread::JSXAttr(attr) => attr,
+      };
+
+      let prop_name = match attr.name {
+        swc_ecma_ast::JSXAttrName::Ident(ident) => ident,
+        _ => {
+          unimplemented!("Other types of attribute names are not implemented for prop propagation!")
+        }
+      };
+
+      let key = PropName::Ident(match PROP_NAME_MAP.get(prop_name.sym.as_str()) {
+        Some(name) => name.to_string().as_str().into(),
+        None => prop_name,
+      });
+
+      let value = match attr.value {
+        None => Box::new(Expr::Lit(Lit::Bool(true.into()))),
+        Some(value) => match value {
+          JSXAttrValue::Lit(lit) => Box::new(Expr::Lit(lit)),
+          JSXAttrValue::JSXExprContainer(container) => match container.expr {
+            JSXExpr::JSXEmptyExpr(_) => Box::new(Expr::Lit(Lit::Bool(true.into()))),
+            JSXExpr::Expr(expr) => expr,
+          },
+          JSXAttrValue::JSXElement(el) => Box::new(transform(compiler, el)),
+          JSXAttrValue::JSXFragment(frag) => {
+            let mut children = TplWrapper::new();
+            for child in frag.children {
+              children.append_element_child(compiler, child);
+            }
+            Box::new(Expr::Tpl(children.build()))
+          }
+        },
+      };
+
+      props.push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+        key,
+        value,
+      }))));
+    }
 
     let expr = ExprOrSpread {
       spread: None,

@@ -9,7 +9,16 @@ const props: { [key: string]: unknown } = { hello: 'world' };
   <div {...props} test={['Hellooo "Maki325"']}>
     World
   </div>
-  <Wall>
+  <Wall
+    maki325={['is', 'the', 'best', '!']}
+    hello="world"
+    number={5}
+    truthy
+    bool={false}
+    nully={null}
+    re={/hello/m}
+    jsxIntrinsic={<h1>Maki325 is the best</h1>}
+    jsxCustomElement={<Wall>Maki325</Wall>}>
     <div>Marko</div>
   </Wall>
 </div>;
