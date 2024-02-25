@@ -1,12 +1,13 @@
-use crate::tpl_wrapper::TplWrapper;
+use crate::{tpl_wrapper::TplWrapper, utils::*};
 use anyhow::Context;
+use phf::phf_map;
 use std::{fs, path::Path, sync::Arc};
 use swc::{self, try_with_handler, PrintArgs};
 use swc_common::{util::take::Take, SourceMap, GLOBALS};
 use swc_core::ecma::visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  CallExpr, Callee, EsVersion, Expr, ExprOrSpread, JSXElement, JSXElementName, JSXObject,
-  KeyValueProp, Lit, ObjectLit, Prop,
+  CallExpr, Callee, EsVersion, Expr, ExprOrSpread, JSXAttrOrSpread, JSXAttrValue, JSXElement,
+  JSXElementName, JSXExpr, KeyValueProp, Lit, ObjectLit, Prop,
 };
 use swc_ecma_parser::{Syntax, TsConfig};
 
@@ -15,33 +16,21 @@ pub struct TransformVisitor<'a> {
   compiler: &'a swc::Compiler,
 }
 
-fn stringify_jsx_object(jsx_object: &JSXObject) -> String {
-  match jsx_object {
-    JSXObject::Ident(ident) => ident.to_string(),
-    JSXObject::JSXMemberExpr(member) => {
-      format!("{}.{}", stringify_jsx_object(&member.obj), member.prop)
-    }
-  }
+static PROP_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
+  "className" => "class",
+};
+
+fn expr_to_string(compiler: &swc::Compiler, expr: &Expr) -> String {
+  return compiler.print(expr, PrintArgs::default()).unwrap().code;
 }
 
-fn stringify_jsx_element_name(name: &JSXElementName) -> String {
-  match name {
-    JSXElementName::Ident(ident) => ident.to_string(),
-    JSXElementName::JSXNamespacedName(namespace) => {
-      format!("{}:{}", namespace.ns, namespace.name)
-    }
-    JSXElementName::JSXMemberExpr(member) => {
-      format!("{}.{}", stringify_jsx_object(&member.obj), member.prop)
-    }
-  }
-}
-
-pub fn transform(jsx_element: Box<JSXElement>) -> Expr {
-  let name = &jsx_element.opening.name;
+pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr {
+  let opening = jsx_element.opening;
+  let name = opening.name;
 
   // If it's custom, we pass the output as "children" props
   // And if it isn't, we just put the tags at the start and the end
-  let custom_name = if let JSXElementName::Ident(name) = name {
+  let custom_name = if let JSXElementName::Ident(name) = &name {
     let name: &str = name.as_ref();
     match name
       .chars()
@@ -58,7 +47,7 @@ pub fn transform(jsx_element: Box<JSXElement>) -> Expr {
 
   let mut children = TplWrapper::new();
   for element in jsx_element.children {
-    children.append_element_child(element);
+    children.append_element_child(compiler, element);
   }
 
   if let Some(custom_name) = custom_name {
@@ -72,15 +61,17 @@ pub fn transform(jsx_element: Box<JSXElement>) -> Expr {
       Expr::Tpl(children.build())
     };
 
-    let props = swc_ecma_ast::PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+    let children_prop = swc_ecma_ast::PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
       key: swc_ecma_ast::PropName::Ident("children".into()),
       value: Box::new(expr),
     })));
 
+    let props = vec![children_prop];
+
     let expr = ExprOrSpread {
       spread: None,
       expr: Box::new(Expr::Object(ObjectLit {
-        props: vec![props],
+        props,
         ..ObjectLit::dummy()
       })),
     };
@@ -92,35 +83,79 @@ pub fn transform(jsx_element: Box<JSXElement>) -> Expr {
     };
 
     return Expr::Call(call);
-  } else {
-    let name = stringify_jsx_element_name(name);
-    // let name = self
-    //   .compiler
-    //   .print(name, PrintArgs::default())
-    //   .unwrap()
-    //   .code;
-
-    if children.exprs.len() == 0 {
-      let html = format!(
-        "<{name}>{}</{name}>",
-        children
-          .quasis
-          .pop()
-          .map_or(String::new(), |q| q.raw.as_str().to_owned())
-      );
-      let expr_lit = Expr::Lit(Lit::Str(html.into()));
-      return expr_lit;
-    }
-
-    let mut shell = TplWrapper::new();
-
-    shell.append_quasi(format!("<{name}>"));
-    shell.append_tpl(children);
-    shell.append_quasi(format!("</{name}>"));
-
-    let expr_tpl = Expr::Tpl(shell.build());
-    return expr_tpl;
   }
+
+  let mut props = TplWrapper::new();
+
+  for attr in opening.attrs {
+    props.append_quasi(" ");
+    match attr {
+      JSXAttrOrSpread::SpreadElement(spread) => {
+        props.append_quasi("${Object.entries(");
+        props.append_quasi(expr_to_string(&compiler, &spread.expr));
+        props.append_quasi(").map(([key, value]) => `${key}=\"${value ? (typeof value === 'string' ? value : (value instanceof RegExp ? value.toString() : JSON.stringify(value))).replace(/\"/mg, '\\\\\"') : 'true'}\"`).join(' ')}");
+      }
+      JSXAttrOrSpread::JSXAttr(attr) => {
+        let prop_name = stringify_jsx_attr_name(attr.name);
+
+        let prop_name = match PROP_NAME_MAP.get(&prop_name) {
+          Some(name) => name.to_string(),
+          None => prop_name,
+        };
+
+        props.append_quasi(format!("{prop_name}=\""));
+        match attr.value {
+          None => props.append_quasi("true\""),
+          Some(value) => {
+            let value = match value {
+              JSXAttrValue::Lit(lit) => lit.stringify(),
+              JSXAttrValue::JSXExprContainer(container) => match container.expr {
+                JSXExpr::JSXEmptyExpr(_) => "true".to_string(),
+                JSXExpr::Expr(expr) => expr_to_string(&compiler, &expr),
+              },
+              JSXAttrValue::JSXElement(el) => {
+                props.append_expr(transform(compiler, el));
+                continue;
+              }
+              JSXAttrValue::JSXFragment(frag) => {
+                for child in frag.children {
+                  props.append_element_child(compiler, child);
+                }
+                continue;
+              }
+            };
+            props.append_quasi(escape_string(value));
+            props.append_quasi("\"");
+          }
+        }
+      }
+    }
+  }
+
+  let name = stringify_jsx_element_name(name);
+
+  if children.exprs.len() == 0 && props.quasis.len() == 0 {
+    let html = format!(
+      "<{name}>{}</{name}>",
+      children
+        .quasis
+        .pop()
+        .map_or(String::new(), |q| q.raw.as_str().to_owned())
+    );
+    let expr_lit = Expr::Lit(Lit::Str(html.into()));
+    return expr_lit;
+  }
+
+  let mut shell = TplWrapper::new();
+
+  shell.append_quasi(format!("<{name} "));
+  shell.append_tpl(props);
+  shell.append_quasi(format!(">"));
+  shell.append_tpl(children);
+  shell.append_quasi(format!("</{name}>"));
+
+  let expr_tpl = Expr::Tpl(shell.build());
+  return expr_tpl;
 }
 
 impl<'a> VisitMut for TransformVisitor<'a> {
@@ -130,7 +165,7 @@ impl<'a> VisitMut for TransformVisitor<'a> {
     if let Expr::JSXElement(_) = n {
       n.map_with_mut(|n| {
         if let Expr::JSXElement(jsx_element) = n {
-          transform(jsx_element)
+          transform(self.compiler, jsx_element)
         } else {
           unreachable!()
         }

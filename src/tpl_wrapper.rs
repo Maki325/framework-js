@@ -1,4 +1,4 @@
-use crate::run::transform;
+use crate::{run::transform, utils::Stringify};
 use swc_common::util::take::Take;
 use swc_ecma_ast::{Expr, JSXElementChild, JSXExpr, Lit, Tpl, TplElement};
 
@@ -17,23 +17,15 @@ impl TplWrapper {
     };
   }
 
+  pub fn append_lit(&mut self, lit: Lit) {
+    self.append_quasi(lit.stringify());
+  }
+
   pub fn append_expr(&mut self, expr: Expr) {
     let expr = match expr {
-      Expr::Lit(ref lit) => {
-        let string = match lit {
-          Lit::Str(value) => Some(value.value.as_str().to_owned()),
-          Lit::Bool(value) => Some(value.value.to_string()),
-          Lit::Null(_) => Some("null".to_owned()),
-          Lit::Num(value) => Some(value.value.to_string()),
-          Lit::BigInt(value) => Some(value.value.to_string()),
-          Lit::Regex(_) => None,
-          Lit::JSXText(value) => Some(value.value.as_str().to_owned()),
-        };
-        if let Some(string) = string {
-          self.append_quasi(string);
-          return;
-        }
-        Box::new(expr)
+      Expr::Lit(lit) => {
+        self.append_lit(lit);
+        return;
       }
       Expr::Tpl(tpl) => {
         self.append_tpl(tpl);
@@ -101,10 +93,10 @@ impl TplWrapper {
     }
   }
 
-  pub fn append_element_child(&mut self, element: JSXElementChild) {
+  pub fn append_element_child(&mut self, compiler: &swc::Compiler, element: JSXElementChild) {
     match element {
       JSXElementChild::JSXElement(el) => {
-        let transformed = transform(el);
+        let transformed = transform(compiler, el);
 
         self.append_expr(transformed);
       }
@@ -115,7 +107,7 @@ impl TplWrapper {
       }
       JSXElementChild::JSXFragment(f) => {
         for child in f.children {
-          self.append_element_child(child);
+          self.append_element_child(compiler, child);
         }
       }
       JSXElementChild::JSXSpreadChild(sc) => {

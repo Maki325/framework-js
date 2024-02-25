@@ -12,3 +12,4 @@ swc_core = { version = "0.90.*", features = ["ecma_plugin_transform"] }
 swc_common = "0.33.17"
 swc_ecma_ast = "0.112.2"
 swc_ecma_parser = "0.143.3"
+phf = { version = "0.11", features = ["macros"] }
