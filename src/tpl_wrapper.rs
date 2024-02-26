@@ -1,4 +1,7 @@
-use crate::{run::transform, utils::Stringify};
+use crate::{
+  run::transform,
+  utils::{self, Stringify},
+};
 use swc_common::util::take::Take;
 use swc_ecma_ast::{Expr, JSXElementChild, JSXExpr, Lit, Tpl, TplElement};
 
@@ -102,7 +105,21 @@ impl TplWrapper {
       }
       JSXElementChild::JSXExprContainer(container) => {
         if let JSXExpr::Expr(expr) = container.expr {
-          self.append_expr(*expr);
+          let var_name = utils::generate_random_variable_name(12);
+          self.append_quasi("${(() => {const ");
+          self.append_quasi(&var_name);
+          self.append_quasi("=");
+          self.append_quasi(utils::expr_to_string(&compiler, &expr));
+          self.append_quasi("; if(Array.isArray(");
+          self.append_quasi(&var_name);
+          self.append_quasi(")) { return ");
+          self.append_quasi(&var_name);
+          self.append_quasi(".join(''); }");
+          self.append_quasi("else if(typeof ");
+          self.append_quasi(&var_name);
+          self.append_quasi("=== 'object') { throw new Exception('Objects are not valid as a React child!') } else { return ");
+          self.append_quasi(&var_name);
+          self.append_quasi(";}})()}");
         }
       }
       JSXElementChild::JSXFragment(f) => {

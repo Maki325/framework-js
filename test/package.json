@@ -1,0 +1,13 @@
+{
+  "name": "test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "output.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon output.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

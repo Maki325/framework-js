@@ -13,3 +13,5 @@ swc_common = "0.33.17"
 swc_ecma_ast = "0.112.2"
 swc_ecma_parser = "0.143.3"
 phf = { version = "0.11", features = ["macros"] }
+clap = { version = "4.5.1", features = ["derive"] }
+rand = "0.8.5"
