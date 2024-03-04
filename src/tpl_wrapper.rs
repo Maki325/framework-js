@@ -1,5 +1,5 @@
 use crate::{
-  run::transform,
+  transpiler,
   utils::{self, Stringify},
 };
 use swc_common::util::take::Take;
@@ -99,7 +99,7 @@ impl TplWrapper {
   pub fn append_element_child(&mut self, compiler: &swc::Compiler, element: JSXElementChild) {
     match element {
       JSXElementChild::JSXElement(el) => {
-        let transformed = transform(compiler, el);
+        let transformed = transpiler::transform(compiler, el);
 
         self.append_expr(transformed);
       }

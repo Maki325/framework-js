@@ -2,28 +2,26 @@ use crate::{
   tpl_wrapper::TplWrapper,
   utils::{self, Stringify},
 };
-use anyhow::Context;
-use clap::Parser;
 use phf::phf_map;
-use std::{fs, path::PathBuf, sync::Arc};
-use swc::{
-  self,
-  config::{Config, JscConfig, Options},
-  try_with_handler,
-};
-use swc_common::{util::take::Take, SourceMap, Span, GLOBALS};
-use swc_core::ecma::visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
+use swc;
+use swc_common::{util::take::Take, Span};
+use swc_core::ecma::visit::{VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  AwaitExpr, BinExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, EsVersion, Expr,
-  ExprOrSpread, Ident, IfStmt, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName, JSXExpr,
-  KeyValueProp, Lit, ObjectLit, Pat, Prop, PropName, PropOrSpread, ReturnStmt, Stmt, VarDecl,
-  VarDeclKind, VarDeclarator,
+  AwaitExpr, BinExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, Expr, ExprOrSpread,
+  Ident, IfStmt, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName, JSXExpr, KeyValueProp,
+  Lit, ObjectLit, Pat, Prop, PropName, PropOrSpread, ReturnStmt, Stmt, VarDecl, VarDeclKind,
+  VarDeclarator,
 };
-use swc_ecma_parser::{Syntax, TsConfig};
 
-pub struct TransformVisitor<'a> {
+pub struct TranspileVisitor<'a> {
   #[allow(unused)]
   compiler: &'a swc::Compiler,
+}
+
+impl TranspileVisitor<'_> {
+  pub fn new(compiler: &'_ swc::Compiler) -> TranspileVisitor {
+    return TranspileVisitor { compiler };
+  }
 }
 
 static PROP_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
@@ -249,7 +247,7 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
   return expr_tpl;
 }
 
-impl<'a> VisitMut for TransformVisitor<'a> {
+impl<'a> VisitMut for TranspileVisitor<'a> {
   fn visit_mut_expr(&mut self, n: &mut Expr) {
     n.visit_mut_children_with(self);
 
@@ -263,77 +261,4 @@ impl<'a> VisitMut for TransformVisitor<'a> {
       });
     }
   }
-}
-
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-struct Cli {
-  input: PathBuf,
-  output: PathBuf,
-
-  #[arg(short, long)]
-  minify: Option<bool>,
-}
-
-pub fn main() {
-  let cli = Cli::parse();
-  let input_file = utils::make_abs_path(cli.input).unwrap();
-  let output_file = utils::make_abs_path(cli.output).unwrap();
-
-  let cm = Arc::<SourceMap>::default();
-
-  let c = swc::Compiler::new(cm.clone());
-
-  let code = GLOBALS
-    .set(&Default::default(), || {
-      try_with_handler(cm.clone(), Default::default(), |handler| {
-        let fm = cm.load_file(&input_file).expect("failed to load file");
-
-        let output = c
-          .parse_js(
-            fm,
-            handler,
-            EsVersion::EsNext,
-            Syntax::Typescript(TsConfig {
-              tsx: true,
-              ..Default::default()
-            }),
-            swc::config::IsModule::Bool(true),
-            None,
-          )
-          .context("failed to parse file")?;
-
-        let output = output.fold_with(&mut as_folder(TransformVisitor { compiler: &c }));
-
-        // fs::write(
-        //   "./visited-outputed.tsx",
-        //   c.print(&output, PrintArgs::default()).unwrap().code,
-        // )
-        // .unwrap();
-        // fs::write("./parsed-tsx", format!("{output:#?}")).unwrap();
-
-        c.process_js(
-          handler,
-          output,
-          &Options {
-            config: Config {
-              // Need to add `swc_ecma_transforms_module` crate for setting module options
-              // module: Some(ModuleConfig::NodeNext(EsModuleConfig::default())),
-              minify: cli.minify.unwrap_or(false).into(),
-              jsc: JscConfig {
-                target: Some(EsVersion::EsNext),
-                ..JscConfig::default()
-              },
-              ..Config::default()
-            },
-            ..Options::default()
-          },
-        )
-        .context("failed to process file")
-      })
-    })
-    .unwrap();
-
-  // fs::write("./processed.js", code.code).unwrap();
-  fs::write(output_file, code.code).unwrap();
 }
