@@ -2,6 +2,13 @@ function Wall({ children, ...props }: { children: string }) {
   return <div {...props}>A</div>;
 }
 
+let q = function z() {
+  function b() {
+    return <A />;
+  }
+  return b();
+};
+
 const props: { [key: string]: unknown } = { hello: 'world' };
 
 <div>

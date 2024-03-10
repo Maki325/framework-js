@@ -7,5 +7,11 @@ declare namespace JSX {
     div: {
       children?: any;
     };
+    ul: {
+      children?: any;
+    };
+    li: {
+      children?: any;
+    };
   }
 }

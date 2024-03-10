@@ -17,10 +17,17 @@ async function main() {
     res.write(
       <html>
         <body>
-          <Coffee hotOrCold={req.url} />
+          These are the coffees:
+          <ul id='some_fake-randomId' />
         </body>
       </html>
     );
+    res.write(`
+      <script id="script-random-id">
+        document.getElementById("some_fake-randomId").outerHTML = "${<Coffee hotOrCold={req.url} />}";
+        document.getElementById("script-random-id").remove();
+      </script>
+    `);
     res.end();
   });
 
