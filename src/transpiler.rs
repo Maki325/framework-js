@@ -1,26 +1,46 @@
+use std::collections::HashMap;
+
 use crate::{
   tpl_wrapper::TplWrapper,
-  utils::{self, Stringify},
+  utils::{self, generate_random_variable_name, Stringify},
 };
 use phf::phf_map;
 use swc;
 use swc_common::{util::take::Take, Span};
 use swc_core::ecma::visit::{VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  AwaitExpr, BinExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, Expr, ExprOrSpread,
-  Ident, IfStmt, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName, JSXExpr, KeyValueProp,
-  Lit, ObjectLit, Pat, Prop, PropName, PropOrSpread, ReturnStmt, Stmt, VarDecl, VarDeclKind,
-  VarDeclarator,
+  AssignTarget, AwaitExpr, BinExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, Expr,
+  ExprOrSpread, Ident, IfStmt, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName, JSXExpr,
+  KeyValueProp, Lit, ObjectLit, Pat, Prop, PropName, PropOrSpread, ReturnStmt, SimpleAssignTarget,
+  Stmt, VarDecl, VarDeclKind, VarDeclarator,
 };
+
+type IsVariableJsxMap = HashMap<Ident, bool>;
 
 pub struct TranspileVisitor<'a> {
   #[allow(unused)]
   compiler: &'a swc::Compiler,
+
+  response_ident: Ident,
+  component_replace_id_ident: Ident,
+  returns_jsx: bool,
+
+  function_variable_types: Vec<IsVariableJsxMap>,
+  last_arrow_function_is_jsx: bool,
 }
 
 impl TranspileVisitor<'_> {
   pub fn new(compiler: &'_ swc::Compiler) -> TranspileVisitor {
-    return TranspileVisitor { compiler };
+    return TranspileVisitor {
+      compiler,
+
+      response_ident: generate_random_variable_name(16).as_str().into(),
+      component_replace_id_ident: generate_random_variable_name(16).as_str().into(),
+      returns_jsx: false,
+
+      function_variable_types: vec![],
+      last_arrow_function_is_jsx: false,
+    };
   }
 }
 
@@ -247,18 +267,161 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
   return expr_tpl;
 }
 
+impl TranspileVisitor<'_> {
+  fn is_ident_jsx(&self, name: &Ident) -> bool {
+    for map in self.function_variable_types.iter().rev() {
+      match map.get(name) {
+        None => continue,
+        Some(value) => return *value,
+      }
+    }
+
+    return false;
+  }
+
+  fn is_expr_jsx<E: AsRef<Expr>>(&self, expr: E) -> bool {
+    match expr.as_ref() {
+      Expr::JSXElement(_) | Expr::JSXFragment(_) => return true,
+      Expr::Assign(assign) => self.is_expr_jsx(&assign.right),
+      Expr::Await(expr) => self.is_expr_jsx(&expr.arg),
+      Expr::Call(call) => match &call.callee {
+        Callee::Expr(e) => self.is_expr_jsx(e),
+        _ => false,
+      },
+      Expr::Cond(cond) => self.is_expr_jsx(&cond.cons) || self.is_expr_jsx(&cond.alt),
+      // Expr::Fn() => Dont really know? Probably isnt JSX
+      // Expr::Fn(_) => self.last_arrow_function_is_jsx,
+      Expr::Ident(ident) => self.is_ident_jsx(ident),
+      // Expr::Member() => TODO: Implement dis lol
+      Expr::Paren(paren) => self.is_expr_jsx(&paren.expr),
+      _ => return false,
+    }
+  }
+}
+
 impl<'a> VisitMut for TranspileVisitor<'a> {
   fn visit_mut_expr(&mut self, n: &mut Expr) {
     n.visit_mut_children_with(self);
 
     if let Expr::JSXElement(_) = n {
       n.map_with_mut(|n| {
-        if let Expr::JSXElement(jsx_element) = n {
-          transform(self.compiler, jsx_element)
-        } else {
+        let Expr::JSXElement(jsx_element) = n else {
           unreachable!()
-        }
+        };
+
+        transform(self.compiler, jsx_element)
       });
+    }
+  }
+
+  fn visit_mut_arrow_expr(&mut self, arrow: &mut swc_ecma_ast::ArrowExpr) {
+    // Dis needs to be in is_expr_jsx I guess somehow??
+    println!("visit_mut_arrow_expr: {:#?}", arrow);
+
+    self.function_variable_types.push(IsVariableJsxMap::new());
+    arrow.visit_mut_children_with(self);
+    println!(
+      "Popped: {:#?}",
+      self.function_variable_types.pop().unwrap().into_iter()
+    );
+
+    self.last_arrow_function_is_jsx = self.returns_jsx;
+
+    if self.returns_jsx {
+      self.returns_jsx = false;
+
+      arrow.params.insert(
+        0,
+        Pat::Ident(self.component_replace_id_ident.clone().into()).into(),
+      );
+      arrow
+        .params
+        .insert(0, Pat::Ident(self.response_ident.clone().into()).into());
+    }
+  }
+
+  fn visit_mut_assign_expr(&mut self, assign: &mut swc_ecma_ast::AssignExpr) {
+    println!("visit_mut_assign_expr: {:#?}", assign);
+
+    let is_jsx = self.is_expr_jsx(&assign.right);
+    if let Some(last) = self.function_variable_types.last_mut() {
+      match &assign.left {
+        AssignTarget::Simple(simple) => match simple {
+          SimpleAssignTarget::Ident(ident) => {
+            last.insert(ident.id.clone(), is_jsx);
+          }
+          _ => {}
+        },
+        _ => {}
+      }
+    }
+
+    assign.visit_mut_children_with(self);
+  }
+
+  fn visit_mut_var_declarator(&mut self, declarator: &mut VarDeclarator) {
+    println!("visit_mut_var_declarator: {:#?}", declarator);
+
+    if let Some(init) = &declarator.init {
+      let is_jsx = self.is_expr_jsx(init);
+      if let Some(last) = self.function_variable_types.last_mut() {
+        match &declarator.name {
+          Pat::Ident(i) => {
+            last.insert(i.id.clone(), is_jsx);
+          }
+          _ => {}
+        }
+      }
+    }
+
+    declarator.visit_mut_children_with(self);
+  }
+
+  fn visit_mut_return_stmt(&mut self, ret: &mut ReturnStmt) {
+    println!("visit_mut_return_stmt: {:#?}", ret);
+
+    let Some(arg) = &ret.arg else {
+      ret.visit_mut_children_with(self);
+      return;
+    };
+
+    self.returns_jsx = self.is_expr_jsx(arg);
+    println!("Arg: {}", self.returns_jsx);
+
+    ret.visit_mut_children_with(self);
+  }
+
+  fn visit_mut_fn_decl(&mut self, decl: &mut swc_ecma_ast::FnDecl) {
+    println!("visit_mut_fn_decl: {:#?}", decl);
+
+    // We are in function
+    // We parse the function
+    // If a special flag is set, we know that the function returns JSX
+    // So we change the call mechanism
+    // Otherwise, we keep it the same
+
+    self.function_variable_types.push(IsVariableJsxMap::new());
+    decl.visit_mut_children_with(self);
+    println!(
+      "Popped: {:#?}",
+      self.function_variable_types.pop().unwrap().into_iter()
+    );
+
+    if let Some(last) = self.function_variable_types.last_mut() {
+      last.insert(decl.ident.clone(), self.returns_jsx);
+    }
+
+    if self.returns_jsx {
+      self.returns_jsx = false;
+
+      decl.function.params.insert(
+        0,
+        Pat::Ident(self.component_replace_id_ident.clone().into()).into(),
+      );
+      decl
+        .function
+        .params
+        .insert(0, Pat::Ident(self.response_ident.clone().into()).into());
     }
   }
 }
