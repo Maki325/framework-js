@@ -50,34 +50,12 @@ async function main() {
 
     const resp = new Response(rb);
 
-
-    // const a = Page();
-    // console.log('a 1:', a);
-    // console.log('a 2:', await a);
     const [value, fn] = await Page();
     controller.enqueue(value)
     Readable.fromWeb(resp.body).pipe(res);
-    // Readable.fromWeb(resp.body).pipe(process.stdout);
-    // resp.body.pipeTo(res);
-    // resp.body.pipe(res);
+
     await fn(controller);
     controller.close();
-
-    // res.write(
-    //   <html>
-    //     <body>
-    //       These are the coffees:
-    //       <ul id='some_fake-randomId' />
-    //     </body>
-    //   </html>
-    // );
-    // res.write(`
-    //   <script id="script-random-id">
-    //     document.getElementById("some_fake-randomId").outerHTML = "${<Coffee hotOrCold={req.url} />}";
-    //     document.getElementById("script-random-id").remove();
-    //   </script>
-    // `);
-    // res.end();
   });
 
   server.listen(3000, () => console.log('Started listening'));
