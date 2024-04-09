@@ -6,11 +6,7 @@ use std::{
 
 use rand::{distributions::Alphanumeric, Rng};
 use swc::PrintArgs;
-use swc_common::util::take::Take;
-use swc_ecma_ast::{
-  ArrowExpr, BlockStmtOrExpr, CallExpr, Callee, Expr, Ident, JSXAttrName, JSXElementName,
-  JSXObject, Lit, ParenExpr,
-};
+use swc_ecma_ast::{Expr, Ident, JSXAttrName, JSXElementName, JSXObject, Lit};
 
 pub trait Stringify {
   fn stringify(self) -> String;
@@ -121,23 +117,6 @@ pub fn make_abs_path(path: PathBuf) -> Result<PathBuf, Box<dyn Error>> {
   };
 
   return Ok(normalize_path(&path));
-}
-
-pub fn create_self_invoking_function(block_stmt_or_expr: BlockStmtOrExpr) -> CallExpr {
-  let arrow_fn = Expr::Arrow(ArrowExpr {
-    is_async: true,
-    body: Box::new(block_stmt_or_expr),
-    ..ArrowExpr::dummy()
-  });
-
-  return CallExpr {
-    callee: Callee::Expr(Box::new(Expr::Paren(ParenExpr {
-      expr: Box::new(arrow_fn),
-      ..ParenExpr::dummy()
-    }))),
-
-    ..CallExpr::dummy()
-  };
 }
 
 pub fn expr_to_string(compiler: &swc::Compiler, expr: &Expr) -> String {

@@ -1,9 +1,12 @@
 use crate::{
-  transpiler,
+  transpiler::{self, ComponentType, ToCreateAsync, TranspileVisitor},
   utils::{self, Stringify},
 };
-use swc_common::util::take::Take;
-use swc_ecma_ast::{Expr, JSXElementChild, JSXExpr, Lit, Tpl, TplElement};
+use swc_common::{util::take::Take, Span};
+use swc_ecma_ast::{
+  AwaitExpr, CallExpr, Callee, Expr, JSXElementChild, JSXExpr, Lit, MemberExpr, MemberProp, Tpl,
+  TplElement,
+};
 
 pub struct TplWrapper {
   pub exprs: Vec<Box<Expr>>,
@@ -96,35 +99,86 @@ impl TplWrapper {
     }
   }
 
-  pub fn append_element_child(&mut self, compiler: &swc::Compiler, element: JSXElementChild) {
+  pub fn append_element_child(
+    &mut self,
+    v: &TranspileVisitor,
+    element: JSXElementChild,
+    to_create: &mut ToCreateAsync,
+  ) {
     match element {
       JSXElementChild::JSXElement(el) => {
-        let transformed = transpiler::transform(compiler, el);
+        let (transformed, custom) = transpiler::transform(v, el, to_create);
 
-        self.append_expr(transformed);
+        let ComponentType::Custom(name) = custom else {
+          self.append_expr(transformed);
+          return;
+        };
+
+        let id = utils::generate_random_variable_name(12);
+        self.append_quasi(format!("<div id=\"{id}\"></div>"));
+        let is_async = v.get_variable_type(&name).map_or(
+          // We match `true` by default, because if it's async,
+          // and we didn't treat it as such code will break
+          true,
+          |t| t.is_async(),
+        );
+
+        to_create.push((
+          id,
+          if is_async {
+            Expr::Await(AwaitExpr {
+              arg: Box::new(transformed),
+              span: Span::dummy(),
+            })
+          } else {
+            transformed
+          },
+        ));
       }
       JSXElementChild::JSXExprContainer(container) => {
-        if let JSXExpr::Expr(expr) = container.expr {
-          let var_name = utils::generate_random_variable_name(12);
-          self.append_quasi("${(() => {const ");
-          self.append_quasi(&var_name);
-          self.append_quasi("=");
-          self.append_quasi(utils::expr_to_string(&compiler, &expr));
-          self.append_quasi("; if(Array.isArray(");
-          self.append_quasi(&var_name);
-          self.append_quasi(")) { return ");
-          self.append_quasi(&var_name);
-          self.append_quasi(".join(''); }");
-          self.append_quasi("else if(typeof ");
-          self.append_quasi(&var_name);
-          self.append_quasi("=== 'object') { throw new Exception('Objects are not valid as a React child!') } else { return ");
-          self.append_quasi(&var_name);
-          self.append_quasi(";}})()}");
-        }
+        let JSXExpr::Expr(expr) = container.expr else {
+          return;
+        };
+
+        let expr = match *expr {
+          Expr::Array(_) => {
+            self.append_expr(Expr::Call(CallExpr {
+              args: vec![Expr::Lit(Lit::Str("".into())).into()],
+              callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                obj: expr,
+                prop: swc_ecma_ast::MemberProp::Ident("join".into()),
+                ..MemberExpr::dummy()
+              }))),
+              ..CallExpr::dummy()
+            }));
+            return;
+          }
+          Expr::Lit(lit) => {
+            self.append_lit(lit);
+            return;
+          }
+          Expr::Object(_) => unimplemented!("Objects are not valid as a JSX child!"),
+          _ => expr,
+        };
+
+        let expr = Expr::Call(CallExpr {
+          callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+            obj: Box::new(Expr::Ident("global".into())),
+            prop: MemberProp::Ident("___FRAMEWORK_JS_STRINGIFY___".into()),
+            ..MemberExpr::dummy()
+          }))),
+          args: vec![
+            expr.into(),
+            Box::new(Expr::Ident(v.later_create_ident.clone())).into(),
+          ],
+          ..CallExpr::dummy()
+        });
+
+        self.append_expr(expr);
       }
       JSXElementChild::JSXFragment(f) => {
         for child in f.children {
-          self.append_element_child(compiler, child);
+          self.append_element_child(v, child, to_create);
         }
       }
       JSXElementChild::JSXSpreadChild(sc) => {

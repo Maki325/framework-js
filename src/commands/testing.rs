@@ -12,7 +12,7 @@ use swc_core::ecma::visit::{as_folder, FoldWith};
 use swc_ecma_ast::EsVersion;
 use swc_ecma_parser::{Syntax, TsConfig};
 
-#[derive(Args)]
+#[derive(Debug, Args)]
 pub struct TestCommandInfo {
   input: PathBuf,
   output: PathBuf,

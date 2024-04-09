@@ -2,31 +2,74 @@ use std::collections::HashMap;
 
 use crate::{
   tpl_wrapper::TplWrapper,
-  utils::{self, generate_random_variable_name, Stringify},
+  utils::{self, Stringify},
 };
 use phf::phf_map;
 use swc;
 use swc_common::{util::take::Take, Span};
 use swc_core::ecma::visit::{VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  AssignTarget, AwaitExpr, BinExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, Expr,
-  ExprOrSpread, Ident, IfStmt, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName, JSXExpr,
-  KeyValueProp, Lit, ObjectLit, Pat, Prop, PropName, PropOrSpread, ReturnStmt, SimpleAssignTarget,
-  Stmt, VarDecl, VarDeclKind, VarDeclarator,
+  ArrayLit, ArrayPat, ArrowExpr, AssignTarget, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr,
+  Callee, Decl, Expr, ExprOrSpread, ExprStmt, Ident, JSXAttrOrSpread, JSXAttrValue, JSXElement,
+  JSXElementName, JSXExpr, KeyValueProp, Lit, MemberExpr, MemberProp, ObjectLit, ParenExpr, Pat,
+  Prop, PropName, PropOrSpread, ReturnStmt, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind,
+  VarDeclarator,
 };
 
-type IsVariableJsxMap = HashMap<Ident, bool>;
+#[derive(Debug, Clone, Copy)]
+pub enum VarType {
+  JSX,
+  AsyncJSX,
+  Other,
+  AsyncOther,
+}
+
+impl VarType {
+  pub fn is_async(self) -> bool {
+    match self {
+      VarType::AsyncJSX | VarType::AsyncOther => true,
+      VarType::JSX | VarType::Other => false,
+    }
+  }
+
+  fn awaited(self) -> VarType {
+    return match self {
+      VarType::JSX => VarType::AsyncJSX,
+      VarType::Other => VarType::AsyncOther,
+      _ => self,
+    };
+  }
+
+  // Biggest -> Lowest
+  // Awaited JSX -> JSX -> Awaited Other -> Other
+  fn priority(self) -> u8 {
+    return match self {
+      VarType::AsyncJSX => 3,
+      VarType::JSX => 2,
+      VarType::AsyncOther => 1,
+      VarType::Other => 0,
+    };
+  }
+
+  fn gt(self, other: VarType) -> VarType {
+    if self.priority() > other.priority() {
+      return self;
+    }
+    return other;
+  }
+}
+
+type IsVariableJsxMap = HashMap<String, VarType>;
 
 pub struct TranspileVisitor<'a> {
   #[allow(unused)]
-  compiler: &'a swc::Compiler,
+  pub compiler: &'a swc::Compiler,
 
-  response_ident: Ident,
-  component_replace_id_ident: Ident,
-  returns_jsx: bool,
+  return_type: VarType,
+  pub later_create_ident: Ident,
 
-  function_variable_types: Vec<IsVariableJsxMap>,
-  last_arrow_function_is_jsx: bool,
+  pub function_variable_types: Vec<IsVariableJsxMap>,
+  last_arrow_function_return_type: VarType,
 }
 
 impl TranspileVisitor<'_> {
@@ -34,13 +77,57 @@ impl TranspileVisitor<'_> {
     return TranspileVisitor {
       compiler,
 
-      response_ident: generate_random_variable_name(16).as_str().into(),
-      component_replace_id_ident: generate_random_variable_name(16).as_str().into(),
-      returns_jsx: false,
+      return_type: VarType::Other,
+      later_create_ident: utils::generate_random_variable_name(16).as_str().into(),
 
-      function_variable_types: vec![],
-      last_arrow_function_is_jsx: false,
+      function_variable_types: vec![IsVariableJsxMap::new()],
+      last_arrow_function_return_type: VarType::Other,
     };
+  }
+
+  fn is_ident_jsx<S: AsRef<str>>(&self, name: S) -> VarType {
+    for map in self.function_variable_types.iter().rev() {
+      match map.get(name.as_ref()) {
+        None => continue,
+        Some(value) => return *value,
+      }
+    }
+
+    return VarType::Other;
+  }
+
+  fn get_expr_type<E: AsRef<Expr>>(&self, to_assign_expr: E) -> VarType {
+    match to_assign_expr.as_ref() {
+      Expr::JSXElement(_) | Expr::JSXFragment(_) => return VarType::JSX,
+      Expr::Assign(assign) => self.get_expr_type(&assign.right),
+      Expr::Await(expr) => self.get_expr_type(&expr.arg).awaited(),
+      Expr::Call(call) => match &call.callee {
+        Callee::Expr(e) => self.get_expr_type(e),
+        _ => VarType::Other,
+      },
+      Expr::Cond(cond) => self
+        .get_expr_type(&cond.cons)
+        .gt(self.get_expr_type(&cond.alt)),
+      // Expr::Fn() => Dont really know? Probably isnt JSX
+      // Expr::Fn(_) => self.last_arrow_function_is_jsx,
+      Expr::Ident(ident) => self.is_ident_jsx(ident),
+      // Expr::Member() => TODO: Implement dis lol
+      Expr::Paren(paren) => self.get_expr_type(&paren.expr),
+      _ => return VarType::Other,
+    }
+  }
+
+  pub fn get_variable_type<S: AsRef<str>>(&self, name: S) -> Option<VarType> {
+    let name = name.as_ref();
+
+    for map in self.function_variable_types.iter().rev() {
+      let result = map.get(name);
+      if let Some(vt) = result {
+        return Some(*vt);
+      }
+    }
+
+    None
   }
 }
 
@@ -48,7 +135,22 @@ static PROP_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
   "className" => "class",
 };
 
-pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr {
+pub enum ComponentType {
+  Custom(String),
+  HTML,
+}
+
+pub type ID = String;
+pub type ToCreateAsync = Vec<(ID, Expr)>;
+
+// We return the main Expr -> ie the TPL
+// And the ones that need to be created later are added to `created`
+pub fn transform(
+  v: &TranspileVisitor,
+  jsx_element: Box<JSXElement>,
+  to_create: &mut ToCreateAsync,
+) -> (Expr, ComponentType) {
+  let compiler = &v.compiler;
   let opening = jsx_element.opening;
   let name = opening.name;
 
@@ -71,7 +173,7 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
 
   let mut children = TplWrapper::new();
   for element in jsx_element.children {
-    children.append_element_child(compiler, element);
+    children.append_element_child(v, element, to_create);
   }
 
   if let Some(custom_name) = custom_name {
@@ -121,11 +223,41 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
             JSXExpr::JSXEmptyExpr(_) => Box::new(Expr::Lit(Lit::Bool(true.into()))),
             JSXExpr::Expr(expr) => expr,
           },
-          JSXAttrValue::JSXElement(el) => Box::new(transform(compiler, el)),
+          JSXAttrValue::JSXElement(el) => {
+            let (transformed, custom) = transform(v, el, to_create);
+
+            if let ComponentType::Custom(name) = custom {
+              let id = utils::generate_random_variable_name(12);
+              let is_async = v.get_variable_type(&name).map_or(
+                // We match `true` by default, because if it's async,
+                // and we didn't treat it as such code will break
+                true,
+                |t| t.is_async(),
+              );
+
+              to_create.push((
+                id.clone(),
+                if is_async {
+                  Expr::Await(AwaitExpr {
+                    arg: Box::new(transformed),
+                    span: Span::dummy(),
+                  })
+                } else {
+                  transformed
+                },
+              ));
+
+              Box::new(Expr::Lit(Lit::Str(
+                format!("<div id=\"{id}\"></div>").into(),
+              )))
+            } else {
+              Box::new(transformed)
+            }
+          }
           JSXAttrValue::JSXFragment(frag) => {
             let mut children = TplWrapper::new();
             for child in frag.children {
-              children.append_element_child(compiler, child);
+              children.append_element_child(v, child, to_create);
             }
             Box::new(Expr::Tpl(children.build()))
           }
@@ -152,58 +284,10 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
       ..CallExpr::dummy()
     };
 
-    let var_name: Ident = utils::generate_random_variable_name(12).as_str().into();
-
-    let var_decl = VarDecl {
-      kind: VarDeclKind::Const,
-      decls: vec![VarDeclarator {
-        name: Pat::Ident(var_name.clone().into()),
-        init: Some(Box::new(Expr::Call(call))),
-        ..VarDeclarator::dummy()
-      }],
-      ..VarDecl::dummy()
-    };
-
-    let check_if_var_is_promise = Expr::Bin(BinExpr {
-      left: Box::new(Expr::Ident(var_name.clone())),
-      op: swc_ecma_ast::BinaryOp::InstanceOf,
-      right: Box::new(Expr::Ident("Promise".into())),
-      ..BinExpr::dummy()
-    });
-
-    let return_awaited = ReturnStmt {
-      span: Span::dummy(),
-      arg: Some(Box::new(Expr::Await(AwaitExpr {
-        span: Span::dummy(),
-        arg: Box::new(Expr::Ident(var_name.clone())),
-      }))),
-    };
-
-    let return_not_awaited = ReturnStmt {
-      span: Span::dummy(),
-      arg: Some(Box::new(Expr::Ident(var_name.clone()))),
-    };
-
-    let if_stmt = IfStmt {
-      span: Span::dummy(),
-      test: Box::new(check_if_var_is_promise),
-      cons: Box::new(Stmt::Return(return_awaited)),
-      alt: Some(Box::new(Stmt::Return(return_not_awaited))),
-    };
-
-    let block_stmt = BlockStmt {
-      stmts: vec![Stmt::Decl(Decl::Var(Box::new(var_decl))), Stmt::If(if_stmt)],
-      ..BlockStmt::dummy()
-    };
-
-    let await_expr = Expr::Await(AwaitExpr {
-      arg: Box::new(Expr::Call(utils::create_self_invoking_function(
-        BlockStmtOrExpr::BlockStmt(block_stmt),
-      ))),
-      span: Span::default(),
-    });
-
-    return await_expr;
+    return (
+      Expr::Call(call),
+      ComponentType::Custom(custom_name.to_owned()),
+    );
   }
 
   let mut props = TplWrapper::new();
@@ -235,12 +319,39 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
                 JSXExpr::Expr(expr) => utils::expr_to_string(&compiler, &expr),
               },
               JSXAttrValue::JSXElement(el) => {
-                props.append_expr(transform(compiler, el));
+                let (transformed, custom) = transform(v, el, to_create);
+
+                if let ComponentType::Custom(name) = custom {
+                  let id = utils::generate_random_variable_name(12);
+                  let is_async = v.get_variable_type(&name).map_or(
+                    // We match `true` by default, because if it's async,
+                    // and we didn't treat it as such code will break
+                    true,
+                    |t| t.is_async(),
+                  );
+
+                  to_create.push((
+                    id.clone(),
+                    if is_async {
+                      Expr::Await(AwaitExpr {
+                        arg: Box::new(transformed),
+                        span: Span::dummy(),
+                      })
+                    } else {
+                      transformed
+                    },
+                  ));
+
+                  props.append_quasi(format!("<div id=\"{id}\"></div>"));
+                } else {
+                  props.append_expr(transformed);
+                }
+
                 continue;
               }
               JSXAttrValue::JSXFragment(frag) => {
                 for child in frag.children {
-                  props.append_element_child(compiler, child);
+                  props.append_element_child(v, child, to_create);
                 }
                 continue;
               }
@@ -264,39 +375,7 @@ pub fn transform(compiler: &swc::Compiler, jsx_element: Box<JSXElement>) -> Expr
   shell.append_quasi(format!("</{name}>"));
 
   let expr_tpl = Expr::Tpl(shell.build());
-  return expr_tpl;
-}
-
-impl TranspileVisitor<'_> {
-  fn is_ident_jsx(&self, name: &Ident) -> bool {
-    for map in self.function_variable_types.iter().rev() {
-      match map.get(name) {
-        None => continue,
-        Some(value) => return *value,
-      }
-    }
-
-    return false;
-  }
-
-  fn is_expr_jsx<E: AsRef<Expr>>(&self, expr: E) -> bool {
-    match expr.as_ref() {
-      Expr::JSXElement(_) | Expr::JSXFragment(_) => return true,
-      Expr::Assign(assign) => self.is_expr_jsx(&assign.right),
-      Expr::Await(expr) => self.is_expr_jsx(&expr.arg),
-      Expr::Call(call) => match &call.callee {
-        Callee::Expr(e) => self.is_expr_jsx(e),
-        _ => false,
-      },
-      Expr::Cond(cond) => self.is_expr_jsx(&cond.cons) || self.is_expr_jsx(&cond.alt),
-      // Expr::Fn() => Dont really know? Probably isnt JSX
-      // Expr::Fn(_) => self.last_arrow_function_is_jsx,
-      Expr::Ident(ident) => self.is_ident_jsx(ident),
-      // Expr::Member() => TODO: Implement dis lol
-      Expr::Paren(paren) => self.is_expr_jsx(&paren.expr),
-      _ => return false,
-    }
-  }
+  return (expr_tpl, ComponentType::HTML);
 }
 
 impl<'a> VisitMut for TranspileVisitor<'a> {
@@ -308,47 +387,215 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
         let Expr::JSXElement(jsx_element) = n else {
           unreachable!()
         };
+        let mut created = ToCreateAsync::with_capacity(8);
 
-        transform(self.compiler, jsx_element)
+        let (first, _) = transform(self, jsx_element, &mut created);
+
+        let controller_name: Ident = utils::generate_random_variable_name(12).as_str().into();
+
+        let html_ident: Ident = utils::generate_random_variable_name(12).as_str().into();
+        let later_fn_ident: Ident = utils::generate_random_variable_name(12).as_str().into();
+
+        let array_name: Ident = utils::generate_random_variable_name(12).as_str().into();
+
+        let f = |(id, expr): (String, Expr)| {
+          let decl = Stmt::Decl(Decl::Var(Box::new(VarDecl {
+            kind: VarDeclKind::Const,
+            declare: false,
+            decls: vec![VarDeclarator {
+              name: Pat::Array(ArrayPat {
+                elems: vec![
+                  Some(Pat::Ident(html_ident.clone().into())),
+                  Some(Pat::Ident(later_fn_ident.clone().into())),
+                ],
+                optional: false,
+                type_ann: None,
+                span: Span::dummy(),
+              }),
+              init: Some(Box::new(expr)),
+              ..VarDeclarator::dummy()
+            }],
+            ..VarDecl::dummy()
+          })));
+
+          let script_id = utils::generate_random_variable_name(12);
+
+          let mut tpl = TplWrapper::new();
+          tpl.append_quasi(format!(
+            "<script id=\"{script_id}\">document.getElementById(\"{id}\").outerHTML = \\`"
+          ));
+          tpl.append_expr(Expr::Ident(html_ident.clone().into()));
+          tpl.append_quasi(format!(
+            "\\`;document.getElementById(\"{script_id}\").remove();</script>"
+          ));
+
+          let enqueue = Stmt::Expr(ExprStmt {
+            span: Span::default(),
+            expr: Box::new(Expr::Call(CallExpr {
+              callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                obj: Box::new(controller_name.clone().into()),
+                prop: MemberProp::Ident("enqueue".into()),
+                ..MemberExpr::dummy()
+              }))),
+              args: vec![ExprOrSpread::from(Box::new(tpl.build().into()))],
+              ..CallExpr::dummy()
+            })),
+          });
+
+          let later_fn_call = Stmt::Expr(ExprStmt {
+            span: Span::default(),
+            expr: Box::new(Expr::Call(CallExpr {
+              callee: Callee::Expr(Box::new(Expr::Ident(later_fn_ident.clone().into()))),
+              args: vec![ExprOrSpread::from(Box::new(controller_name.clone().into()))],
+              ..CallExpr::dummy()
+            })),
+          });
+
+          Stmt::Expr(ExprStmt {
+            span: Span::default(),
+            expr: Box::new(Expr::Call(CallExpr {
+              callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                obj: Box::new(Expr::Ident(array_name.clone())),
+                prop: MemberProp::Ident("push".into()),
+                ..MemberExpr::dummy()
+              }))),
+              args: vec![Box::new(Expr::Call(CallExpr {
+                callee: Callee::Expr(Box::new(Expr::Paren(ParenExpr {
+                  expr: Box::new(Expr::Arrow(ArrowExpr {
+                    is_async: true,
+                    body: Box::new(BlockStmtOrExpr::BlockStmt(BlockStmt {
+                      stmts: vec![decl, enqueue, later_fn_call],
+                      ..BlockStmt::dummy()
+                    })),
+                    ..ArrowExpr::dummy()
+                  })),
+                  ..ParenExpr::dummy()
+                }))),
+                ..CallExpr::dummy()
+              }))
+              .into()],
+              ..CallExpr::dummy()
+            })),
+          })
+        };
+
+        let call = Expr::Arrow(ArrowExpr {
+          body: Box::new(BlockStmtOrExpr::BlockStmt(BlockStmt {
+            stmts: {
+              let map_var: Ident = utils::generate_random_variable_name(12).as_str().into();
+              let mut stmts: Vec<Stmt> = created.into_iter().map(f).collect();
+
+              stmts.insert(
+                0,
+                Stmt::Decl(Decl::Var(Box::new(VarDecl {
+                  kind: VarDeclKind::Const,
+                  decls: vec![VarDeclarator {
+                    name: Pat::Ident(array_name.clone().into()),
+                    init: Some(Box::new(Expr::Call(CallExpr {
+                      callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                        obj: Box::new(Expr::Ident(self.later_create_ident.clone().into())),
+                        prop: MemberProp::Ident("map".into()),
+                        ..MemberExpr::dummy()
+                      }))),
+                      args: vec![Box::new(Expr::Arrow(ArrowExpr {
+                        params: vec![Pat::Ident(map_var.clone().into())],
+                        body: Box::new(
+                          Expr::Call(CallExpr {
+                            callee: Callee::Expr(Expr::Ident(map_var).into()),
+                            args: vec![Box::new(Expr::Ident(controller_name.clone())).into()],
+                            ..CallExpr::dummy()
+                          })
+                          .into(),
+                        ),
+                        ..ArrowExpr::dummy()
+                      }))
+                      .into()],
+                      ..CallExpr::dummy()
+                    }))),
+                    ..VarDeclarator::dummy()
+                  }],
+                  ..VarDecl::dummy()
+                }))),
+              );
+
+              stmts.push(Stmt::Return(ReturnStmt {
+                span: Span::dummy(),
+                arg: Some(Box::new(Expr::Call(CallExpr {
+                  callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                    obj: Box::new(Expr::Ident("Promise".into())),
+                    prop: MemberProp::Ident("allSettled".into()),
+                    ..MemberExpr::dummy()
+                  }))),
+                  args: vec![Box::new(Expr::Ident(array_name.clone())).into()],
+                  ..CallExpr::dummy()
+                }))),
+              }));
+
+              stmts
+            },
+            ..BlockStmt::dummy()
+          })),
+          params: vec![Pat::Ident(controller_name.into())],
+          ..ArrowExpr::dummy()
+        });
+
+        Expr::Call(CallExpr {
+          callee: Callee::Expr(Box::new(Expr::Paren(ParenExpr {
+            expr: Box::new(Expr::Arrow(ArrowExpr {
+              body: Box::new(BlockStmtOrExpr::BlockStmt(BlockStmt {
+                stmts: vec![
+                  Stmt::Decl(Decl::Var(Box::new(VarDecl {
+                    kind: VarDeclKind::Const,
+                    declare: false,
+                    decls: vec![VarDeclarator {
+                      name: Pat::Ident(self.later_create_ident.clone().into()),
+                      init: Some(Box::new(Expr::Array(ArrayLit::dummy()))),
+                      ..VarDeclarator::dummy()
+                    }],
+                    ..VarDecl::dummy()
+                  }))),
+                  Stmt::Return(ReturnStmt {
+                    span: Span::dummy(),
+                    arg: Some(Box::new(Expr::Array(ArrayLit {
+                      elems: vec![
+                        Some(ExprOrSpread::from(first)),
+                        Some(ExprOrSpread::from(call)),
+                      ],
+                      ..ArrayLit::dummy()
+                    }))),
+                  }),
+                ],
+                ..BlockStmt::dummy()
+              })),
+              ..ArrowExpr::dummy()
+            })),
+            ..ParenExpr::dummy()
+          }))),
+          ..CallExpr::dummy()
+        })
       });
     }
   }
 
   fn visit_mut_arrow_expr(&mut self, arrow: &mut swc_ecma_ast::ArrowExpr) {
-    // Dis needs to be in is_expr_jsx I guess somehow??
-    println!("visit_mut_arrow_expr: {:#?}", arrow);
-
     self.function_variable_types.push(IsVariableJsxMap::new());
+
     arrow.visit_mut_children_with(self);
-    println!(
-      "Popped: {:#?}",
-      self.function_variable_types.pop().unwrap().into_iter()
-    );
+    if arrow.is_async {
+      self.return_type = self.return_type.awaited()
+    };
+    self.last_arrow_function_return_type = self.return_type;
 
-    self.last_arrow_function_is_jsx = self.returns_jsx;
-
-    if self.returns_jsx {
-      self.returns_jsx = false;
-
-      arrow.params.insert(
-        0,
-        Pat::Ident(self.component_replace_id_ident.clone().into()).into(),
-      );
-      arrow
-        .params
-        .insert(0, Pat::Ident(self.response_ident.clone().into()).into());
-    }
+    self.function_variable_types.pop();
   }
 
   fn visit_mut_assign_expr(&mut self, assign: &mut swc_ecma_ast::AssignExpr) {
-    println!("visit_mut_assign_expr: {:#?}", assign);
-
-    let is_jsx = self.is_expr_jsx(&assign.right);
+    let is_jsx = self.get_expr_type(&assign.right);
     if let Some(last) = self.function_variable_types.last_mut() {
       match &assign.left {
         AssignTarget::Simple(simple) => match simple {
           SimpleAssignTarget::Ident(ident) => {
-            last.insert(ident.id.clone(), is_jsx);
+            last.insert(ident.id.sym.as_str().to_owned(), is_jsx);
           }
           _ => {}
         },
@@ -360,14 +607,12 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
   }
 
   fn visit_mut_var_declarator(&mut self, declarator: &mut VarDeclarator) {
-    println!("visit_mut_var_declarator: {:#?}", declarator);
-
     if let Some(init) = &declarator.init {
-      let is_jsx = self.is_expr_jsx(init);
+      let is_jsx = self.get_expr_type(init);
       if let Some(last) = self.function_variable_types.last_mut() {
         match &declarator.name {
           Pat::Ident(i) => {
-            last.insert(i.id.clone(), is_jsx);
+            last.insert(i.id.sym.as_str().to_owned(), is_jsx);
           }
           _ => {}
         }
@@ -378,50 +623,26 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
   }
 
   fn visit_mut_return_stmt(&mut self, ret: &mut ReturnStmt) {
-    println!("visit_mut_return_stmt: {:#?}", ret);
-
     let Some(arg) = &ret.arg else {
       ret.visit_mut_children_with(self);
       return;
     };
 
-    self.returns_jsx = self.is_expr_jsx(arg);
-    println!("Arg: {}", self.returns_jsx);
+    self.return_type = self.get_expr_type(arg);
 
     ret.visit_mut_children_with(self);
   }
 
   fn visit_mut_fn_decl(&mut self, decl: &mut swc_ecma_ast::FnDecl) {
-    println!("visit_mut_fn_decl: {:#?}", decl);
-
-    // We are in function
-    // We parse the function
-    // If a special flag is set, we know that the function returns JSX
-    // So we change the call mechanism
-    // Otherwise, we keep it the same
-
     self.function_variable_types.push(IsVariableJsxMap::new());
     decl.visit_mut_children_with(self);
-    println!(
-      "Popped: {:#?}",
-      self.function_variable_types.pop().unwrap().into_iter()
-    );
+    self.function_variable_types.pop();
 
     if let Some(last) = self.function_variable_types.last_mut() {
-      last.insert(decl.ident.clone(), self.returns_jsx);
-    }
-
-    if self.returns_jsx {
-      self.returns_jsx = false;
-
-      decl.function.params.insert(
-        0,
-        Pat::Ident(self.component_replace_id_ident.clone().into()).into(),
-      );
-      decl
-        .function
-        .params
-        .insert(0, Pat::Ident(self.response_ident.clone().into()).into());
+      if decl.function.is_async {
+        self.return_type = self.return_type.awaited()
+      };
+      last.insert(decl.ident.sym.as_str().to_owned(), self.return_type.clone());
     }
   }
 }
