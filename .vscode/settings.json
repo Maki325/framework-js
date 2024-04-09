@@ -3,5 +3,7 @@
   "rust-analyzer.diagnostics.disabled": ["needless_return"],
   "editor.formatOnSave": true,
   "editor.tabSize": 2,
-  "prettier.tabWidth": 2
+  "files.insertFinalNewline": true,
+  "prettier.tabWidth": 2,
+  "typescript.tsdk": "node_modules/typescript/lib"
 }

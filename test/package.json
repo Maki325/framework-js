@@ -2,10 +2,10 @@
   "name": "test",
   "version": "1.0.0",
   "description": "",
-  "main": "output.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "nodemon output.js"
+    "watch": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
