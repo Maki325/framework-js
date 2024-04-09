@@ -12,7 +12,7 @@ use swc_ecma_ast::{
   ArrayLit, ArrayPat, ArrowExpr, AssignTarget, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr,
   Callee, Decl, Expr, ExprOrSpread, ExprStmt, Ident, JSXAttrOrSpread, JSXAttrValue, JSXElement,
   JSXElementName, JSXExpr, KeyValueProp, Lit, MemberExpr, MemberProp, ObjectLit, ParenExpr, Pat,
-  Prop, PropName, PropOrSpread, ReturnStmt, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind,
+  Prop, PropName, PropOrSpread, Regex, ReturnStmt, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind,
   VarDeclarator,
 };
 
@@ -424,7 +424,25 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
           tpl.append_quasi(format!(
             "<script id=\"{script_id}\">document.getElementById(\"{id}\").outerHTML = \\`"
           ));
-          tpl.append_expr(Expr::Ident(html_ident.clone().into()));
+
+          tpl.append_expr(Expr::Call(CallExpr {
+            callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+              obj: Box::new(Expr::Ident(html_ident.clone().into())),
+              prop: MemberProp::Ident("replace".into()),
+              ..MemberExpr::dummy()
+            }))),
+            args: vec![
+              Box::new(Expr::Lit(Lit::Regex(Regex {
+                exp: "`".into(),
+                flags: "mg".into(),
+                ..Regex::dummy()
+              })))
+              .into(),
+              Box::new(Expr::Lit(Lit::Str("\\`".into()))).into(),
+            ],
+            ..CallExpr::dummy()
+          }));
+
           tpl.append_quasi(format!(
             "\\`;document.getElementById(\"{script_id}\").remove();</script>"
           ));
