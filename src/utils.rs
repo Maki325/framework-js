@@ -6,7 +6,13 @@ use std::{
 
 use rand::{distributions::Alphanumeric, Rng};
 use swc::PrintArgs;
-use swc_ecma_ast::{Expr, Ident, JSXAttrName, JSXElementName, JSXObject, Lit};
+use swc_common::{util::take::Take, Span};
+use swc_ecma_ast::{
+  AwaitExpr, CallExpr, Callee, Expr, Ident, JSXAttrName, JSXElementName, JSXObject, Lit,
+  MemberExpr, MemberProp,
+};
+
+use crate::transpiler::{ComponentType, ToCreateAsync, TransfromedJSX, TranspileVisitor};
 
 pub trait Stringify {
   fn stringify(self) -> String;
@@ -132,4 +138,59 @@ pub fn generate_random_variable_name(len: usize) -> String {
       .map(char::from)
       .collect::<String>(),
   );
+}
+
+pub fn call_framework_stringify(expr: Box<Expr>, later_create_ident: Ident) -> Expr {
+  Expr::Call(CallExpr {
+    callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+      obj: Box::new(Expr::Ident("global".into())),
+      prop: MemberProp::Ident("___FRAMEWORK_JS_STRINGIFY___".into()),
+      ..MemberExpr::dummy()
+    }))),
+    args: vec![
+      expr.into(),
+      Box::new(Expr::Ident(later_create_ident)).into(),
+    ],
+    ..CallExpr::dummy()
+  })
+}
+
+pub enum Processed {
+  Async(String),
+  Sync(Expr),
+}
+
+pub fn process_transformed_jsx(
+  (transformed, custom): TransfromedJSX,
+  v: &TranspileVisitor,
+  to_create: &mut ToCreateAsync,
+) -> Processed {
+  if let ComponentType::Custom(name) = custom {
+    let is_async = v.get_variable_type(&name).map_or(
+      // We match `true` by default, because if it's async,
+      // and we didn't treat it as such code will break
+      true,
+      |t| t.is_async(),
+    );
+    if false == is_async {
+      return Processed::Sync(call_framework_stringify(
+        Box::new(transformed),
+        v.later_create_ident.clone(),
+      ));
+    }
+
+    let id = generate_random_variable_name(12);
+
+    to_create.push((
+      id.clone(),
+      Expr::Await(AwaitExpr {
+        arg: Box::new(transformed),
+        span: Span::dummy(),
+      }),
+    ));
+
+    return Processed::Async(format!("<div id=\"{id}\"></div>"));
+  } else {
+    return Processed::Sync(transformed);
+  }
 }

@@ -1,11 +1,10 @@
 use crate::{
-  transpiler::{self, ComponentType, ToCreateAsync, TranspileVisitor},
+  transpiler::{self, ToCreateAsync, TranspileVisitor},
   utils::{self, Stringify},
 };
-use swc_common::{util::take::Take, Span};
+use swc_common::util::take::Take;
 use swc_ecma_ast::{
-  AwaitExpr, CallExpr, Callee, Expr, JSXElementChild, JSXExpr, Lit, MemberExpr, MemberProp, Tpl,
-  TplElement,
+  CallExpr, Callee, Expr, JSXElementChild, JSXExpr, Lit, MemberExpr, Tpl, TplElement,
 };
 
 pub struct TplWrapper {
@@ -107,33 +106,11 @@ impl TplWrapper {
   ) {
     match element {
       JSXElementChild::JSXElement(el) => {
-        let (transformed, custom) = transpiler::transform(v, el, to_create);
-
-        let ComponentType::Custom(name) = custom else {
-          self.append_expr(transformed);
-          return;
+        match utils::process_transformed_jsx(transpiler::transform(v, el, to_create), v, to_create)
+        {
+          utils::Processed::Async(div) => self.append_quasi(div),
+          utils::Processed::Sync(transformed) => self.append_expr(transformed),
         };
-
-        let id = utils::generate_random_variable_name(12);
-        self.append_quasi(format!("<div id=\"{id}\"></div>"));
-        let is_async = v.get_variable_type(&name).map_or(
-          // We match `true` by default, because if it's async,
-          // and we didn't treat it as such code will break
-          true,
-          |t| t.is_async(),
-        );
-
-        to_create.push((
-          id,
-          if is_async {
-            Expr::Await(AwaitExpr {
-              arg: Box::new(transformed),
-              span: Span::dummy(),
-            })
-          } else {
-            transformed
-          },
-        ));
       }
       JSXElementChild::JSXExprContainer(container) => {
         let JSXExpr::Expr(expr) = container.expr else {
@@ -161,18 +138,7 @@ impl TplWrapper {
           _ => expr,
         };
 
-        let expr = Expr::Call(CallExpr {
-          callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
-            obj: Box::new(Expr::Ident("global".into())),
-            prop: MemberProp::Ident("___FRAMEWORK_JS_STRINGIFY___".into()),
-            ..MemberExpr::dummy()
-          }))),
-          args: vec![
-            expr.into(),
-            Box::new(Expr::Ident(v.later_create_ident.clone())).into(),
-          ],
-          ..CallExpr::dummy()
-        });
+        let expr = utils::call_framework_stringify(expr, v.later_create_ident.clone());
 
         self.append_expr(expr);
       }

@@ -8,7 +8,7 @@ async function Coffee({
   const url = `https://api.sampleapis.com/coffee/${hotOrIced}`;
   const res = await fetch(url);
   const coffees = await res.json();
-  await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), 300));
   return (
     <ul>
       {coffees.map((coffee: any) => (
@@ -19,10 +19,18 @@ async function Coffee({
   );
 }
 
+function Hello({ name }: { name: string }) {
+  return (
+    <p style="font-size: 2em">
+      Hello <b>{name}</b>!
+    </p>
+  );
+}
+
 export default async function Page() {
   return (
     <div>
-      <h1>Helloooo</h1>
+      <Hello name="Marko" />
       <Coffee hotOrIced="iced">
         <h1>STUFF`</h1>
       </Coffee>

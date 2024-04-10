@@ -9,11 +9,10 @@ use swc;
 use swc_common::{util::take::Take, Span};
 use swc_core::ecma::visit::{VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  ArrayLit, ArrayPat, ArrowExpr, AssignTarget, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr,
-  Callee, Decl, Expr, ExprOrSpread, ExprStmt, Ident, JSXAttrOrSpread, JSXAttrValue, JSXElement,
-  JSXElementName, JSXExpr, KeyValueProp, Lit, MemberExpr, MemberProp, ObjectLit, ParenExpr, Pat,
-  Prop, PropName, PropOrSpread, Regex, ReturnStmt, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind,
-  VarDeclarator,
+  ArrayLit, ArrayPat, ArrowExpr, AssignTarget, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl,
+  Expr, ExprOrSpread, ExprStmt, Ident, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName,
+  JSXExpr, KeyValueProp, Lit, MemberExpr, MemberProp, ObjectLit, ParenExpr, Pat, Prop, PropName,
+  PropOrSpread, Regex, ReturnStmt, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind, VarDeclarator,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -142,6 +141,7 @@ pub enum ComponentType {
 
 pub type ID = String;
 pub type ToCreateAsync = Vec<(ID, Expr)>;
+pub type TransfromedJSX = (Expr, ComponentType);
 
 // We return the main Expr -> ie the TPL
 // And the ones that need to be created later are added to `created`
@@ -149,7 +149,7 @@ pub fn transform(
   v: &TranspileVisitor,
   jsx_element: Box<JSXElement>,
   to_create: &mut ToCreateAsync,
-) -> (Expr, ComponentType) {
+) -> TransfromedJSX {
   let compiler = &v.compiler;
   let opening = jsx_element.opening;
   let name = opening.name;
@@ -224,34 +224,9 @@ pub fn transform(
             JSXExpr::Expr(expr) => expr,
           },
           JSXAttrValue::JSXElement(el) => {
-            let (transformed, custom) = transform(v, el, to_create);
-
-            if let ComponentType::Custom(name) = custom {
-              let id = utils::generate_random_variable_name(12);
-              let is_async = v.get_variable_type(&name).map_or(
-                // We match `true` by default, because if it's async,
-                // and we didn't treat it as such code will break
-                true,
-                |t| t.is_async(),
-              );
-
-              to_create.push((
-                id.clone(),
-                if is_async {
-                  Expr::Await(AwaitExpr {
-                    arg: Box::new(transformed),
-                    span: Span::dummy(),
-                  })
-                } else {
-                  transformed
-                },
-              ));
-
-              Box::new(Expr::Lit(Lit::Str(
-                format!("<div id=\"{id}\"></div>").into(),
-              )))
-            } else {
-              Box::new(transformed)
+            match utils::process_transformed_jsx(transform(v, el, to_create), v, to_create) {
+              utils::Processed::Async(div) => Box::new(Expr::Lit(Lit::Str(div.into()))),
+              utils::Processed::Sync(transformed) => Box::new(transformed),
             }
           }
           JSXAttrValue::JSXFragment(frag) => {
@@ -319,34 +294,10 @@ pub fn transform(
                 JSXExpr::Expr(expr) => utils::expr_to_string(&compiler, &expr),
               },
               JSXAttrValue::JSXElement(el) => {
-                let (transformed, custom) = transform(v, el, to_create);
-
-                if let ComponentType::Custom(name) = custom {
-                  let id = utils::generate_random_variable_name(12);
-                  let is_async = v.get_variable_type(&name).map_or(
-                    // We match `true` by default, because if it's async,
-                    // and we didn't treat it as such code will break
-                    true,
-                    |t| t.is_async(),
-                  );
-
-                  to_create.push((
-                    id.clone(),
-                    if is_async {
-                      Expr::Await(AwaitExpr {
-                        arg: Box::new(transformed),
-                        span: Span::dummy(),
-                      })
-                    } else {
-                      transformed
-                    },
-                  ));
-
-                  props.append_quasi(format!("<div id=\"{id}\"></div>"));
-                } else {
-                  props.append_expr(transformed);
-                }
-
+                match utils::process_transformed_jsx(transform(v, el, to_create), v, to_create) {
+                  utils::Processed::Async(div) => props.append_quasi(div),
+                  utils::Processed::Sync(transformed) => props.append_expr(transformed),
+                };
                 continue;
               }
               JSXAttrValue::JSXFragment(frag) => {
