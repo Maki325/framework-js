@@ -8,8 +8,8 @@ use rand::{distributions::Alphanumeric, Rng};
 use swc::PrintArgs;
 use swc_common::{util::take::Take, Span};
 use swc_ecma_ast::{
-  AwaitExpr, CallExpr, Callee, Expr, Ident, JSXAttrName, JSXElementName, JSXObject, Lit,
-  MemberExpr, MemberProp,
+  AwaitExpr, CallExpr, Callee, Expr, Ident, JSXAttrName, JSXElementName, JSXMemberExpr, JSXObject,
+  Lit, MemberExpr, MemberProp,
 };
 
 use crate::transpiler::{ComponentType, ToCreateAsync, TransfromedJSX, TranspileVisitor};
@@ -51,6 +51,14 @@ pub fn stringify_jsx_object(jsx_object: JSXObject) -> String {
   };
 }
 
+pub fn stringify_jsx_member_expr(jsx_member_expr: JSXMemberExpr) -> String {
+  return format!(
+    "{}.{}",
+    stringify_jsx_object(jsx_member_expr.obj),
+    jsx_member_expr.prop.stringify()
+  );
+}
+
 pub fn stringify_jsx_element_name(name: JSXElementName) -> String {
   return match name {
     JSXElementName::Ident(ident) => ident.stringify(),
@@ -61,13 +69,7 @@ pub fn stringify_jsx_element_name(name: JSXElementName) -> String {
         namespace.name.stringify()
       )
     }
-    JSXElementName::JSXMemberExpr(member) => {
-      format!(
-        "{}.{}",
-        stringify_jsx_object(member.obj),
-        member.prop.stringify()
-      )
-    }
+    JSXElementName::JSXMemberExpr(member) => stringify_jsx_member_expr(member),
   };
 }
 
@@ -166,7 +168,7 @@ pub fn process_transformed_jsx(
   to_create: &mut ToCreateAsync,
 ) -> Processed {
   if let ComponentType::Custom(name) = custom {
-    let is_async = v.get_variable_type(&name).map_or(
+    let is_async = v.get_variable_type(&name.stringify()).map_or(
       // We match `true` by default, because if it's async,
       // and we didn't treat it as such code will break
       true,

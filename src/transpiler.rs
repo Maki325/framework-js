@@ -11,8 +11,9 @@ use swc_core::ecma::visit::{VisitMut, VisitMutWith};
 use swc_ecma_ast::{
   ArrayLit, ArrayPat, ArrowExpr, AssignTarget, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl,
   Expr, ExprOrSpread, ExprStmt, Ident, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName,
-  JSXExpr, KeyValueProp, Lit, MemberExpr, MemberProp, ObjectLit, ParenExpr, Pat, Prop, PropName,
-  PropOrSpread, Regex, ReturnStmt, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind, VarDeclarator,
+  JSXExpr, JSXMemberExpr, JSXObject, KeyValueProp, Lit, MemberExpr, MemberProp, ObjectLit,
+  ParenExpr, Pat, Prop, PropName, PropOrSpread, Regex, ReturnStmt, SimpleAssignTarget, Stmt,
+  VarDecl, VarDeclKind, VarDeclarator,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -134,14 +135,49 @@ static PROP_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
   "className" => "class",
 };
 
+pub enum CustomComponent {
+  Ident(Ident),
+  Member(JSXMemberExpr),
+}
+
+impl CustomComponent {
+  pub fn expr(&self) -> Expr {
+    match self {
+      CustomComponent::Ident(i) => Expr::Ident(i.clone()),
+      CustomComponent::Member(e) => Expr::Member(jsx_member_expr_to_member_expr(e.clone())),
+    }
+  }
+}
+
+impl Stringify for CustomComponent {
+  fn stringify(self) -> String {
+    match self {
+      CustomComponent::Ident(i) => i.stringify(),
+      CustomComponent::Member(m) => utils::stringify_jsx_member_expr(m),
+    }
+  }
+}
+
 pub enum ComponentType {
-  Custom(String),
+  Custom(CustomComponent),
   HTML,
 }
 
 pub type ID = String;
 pub type ToCreateAsync = Vec<(ID, Expr)>;
 pub type TransfromedJSX = (Expr, ComponentType);
+
+fn jsx_member_expr_to_member_expr(expr: JSXMemberExpr) -> MemberExpr {
+  let obj = match expr.obj {
+    JSXObject::Ident(i) => Expr::Ident(i),
+    JSXObject::JSXMemberExpr(expr) => Expr::Member(jsx_member_expr_to_member_expr(*expr)),
+  };
+  return MemberExpr {
+    span: Span::dummy(),
+    obj: Box::new(obj),
+    prop: MemberProp::Ident(expr.prop),
+  };
+}
 
 // We return the main Expr -> ie the TPL
 // And the ones that need to be created later are added to `created`
@@ -154,21 +190,21 @@ pub fn transform(
   let opening = jsx_element.opening;
   let name = opening.name;
 
-  // If it's custom, we pass the output as "children" props
-  // And if it isn't, we just put the tags at the start and the end
-  let custom_name = if let JSXElementName::Ident(name) = &name {
-    let name: &str = name.as_ref();
-    match name
-      .chars()
-      .next()
-      .map(|c| c.is_uppercase())
-      .unwrap_or(false)
-    {
-      true => Some(name),
-      false => None,
+  let custom_name = match &name {
+    JSXElementName::Ident(ident) => {
+      let name: &str = ident.as_ref();
+      match name
+        .chars()
+        .next()
+        .map(|c| c.is_uppercase())
+        .unwrap_or(false)
+      {
+        true => Some(CustomComponent::Ident(ident.clone())),
+        false => None,
+      }
     }
-  } else {
-    None
+    JSXElementName::JSXMemberExpr(member) => Some(CustomComponent::Member(member.clone())),
+    JSXElementName::JSXNamespacedName(_) => None,
   };
 
   let mut children = TplWrapper::new();
@@ -254,15 +290,12 @@ pub fn transform(
     };
 
     let call = CallExpr {
-      callee: Callee::Expr(Box::new(Expr::Ident(custom_name.into()))),
+      callee: Callee::Expr(Box::new(custom_name.expr())),
       args: vec![expr],
       ..CallExpr::dummy()
     };
 
-    return (
-      Expr::Call(call),
-      ComponentType::Custom(custom_name.to_owned()),
-    );
+    return (Expr::Call(call), ComponentType::Custom(custom_name));
   }
 
   let mut props = TplWrapper::new();

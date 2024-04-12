@@ -19,18 +19,20 @@ async function Coffee({
   );
 }
 
-function Hello({ name }: { name: string }) {
-  return (
-    <p style="font-size: 2em">
-      Hello <b>{name}</b>!
-    </p>
-  );
-}
+const common = {
+  Hello: function Hello({ name }: { name: string }) {
+    return (
+      <p style="font-size: 2em">
+        Hello <b>{name}</b>!
+      </p>
+    );
+  },
+};
 
 export default async function Page() {
   return (
     <div>
-      <Hello name="Marko" />
+      <common.Hello name="Marko" />
       <Coffee hotOrIced="iced">
         <h1>STUFF`</h1>
       </Coffee>
