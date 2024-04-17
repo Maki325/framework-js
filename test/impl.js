@@ -27,6 +27,8 @@ global.___FRAMEWORK_JS_STRINGIFY___ = (item, toCreate) => {
         return value;
       }
     }).join('');
+  } else if (item === null || item === undefined) {
+    return '';
   } else if (typeof item === 'object') {
     throw new Error('Objects are not valid as a JSX child!');
   } else {
