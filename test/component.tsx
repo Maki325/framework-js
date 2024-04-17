@@ -22,9 +22,17 @@ async function Coffee({
 const common = {
   Hello: function Hello({ name }: { name: string }) {
     const fontSize = '2em';
+    const bStyle = { color: 'var(--test)', '--aa': '"hello"' };
     return (
-      <p style={{ fontSize, color: 'red', margin: 0, padding: 0 }}>
-        Hello <b>{name}</b>!
+      <p
+        style={{
+          fontSize,
+          color: 'red',
+          margin: 0,
+          padding: 0,
+          '--test': '#1234AA',
+        }}>
+        Hello <b style={{ backgroundColor: 'black', ...bStyle }}>{name}</b>!
       </p>
     );
   },

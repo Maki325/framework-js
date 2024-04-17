@@ -22,7 +22,6 @@ pub fn style_object_to_string(obj: ObjectLit) -> Tpl {
     }
     is_first = false;
 
-    // let (key, value) =
     match prop {
       PropOrSpread::Prop(prop) => match *prop {
         Prop::Shorthand(name) => {
@@ -31,7 +30,10 @@ pub fn style_object_to_string(obj: ObjectLit) -> Tpl {
           tlp.append_quasi(": ");
           tlp.append_expr(utils::call_framework_fn(
             "___FRAMEWORK_JS_STYLE_VALUE___",
-            vec![Box::new(Expr::Ident(name)).into()],
+            vec![
+              Box::new(Expr::Ident(name.clone())).into(),
+              Box::new(Expr::Lit(Lit::Str(name.stringify().into()))).into(),
+            ],
           ));
         }
         Prop::KeyValue(KeyValueProp { key, value }) => {
@@ -49,39 +51,19 @@ pub fn style_object_to_string(obj: ObjectLit) -> Tpl {
             }
           }
 
-          let (key, _processed_key) = match key {
-            PropName::Ident(i) => (
-              StrOrExpr::Str(i.clone().stringify()),
-              StrOrExpr::Str(process_style_name(i.stringify())),
-            ),
-            PropName::Str(str) => (
-              StrOrExpr::Str(str.value.to_string().clone()),
-              StrOrExpr::Str(process_style_name(str.value.to_string())),
-            ),
+          let key = match key {
+            PropName::Ident(i) => StrOrExpr::Str(i.clone().stringify()),
+            PropName::Str(str) => StrOrExpr::Str(str.value.to_string().clone()),
             PropName::Computed(ComputedPropName { expr, .. }) => match *expr {
               Expr::Lit(lit) => match lit {
-                Lit::Str(str) => (
-                  StrOrExpr::Str(str.value.to_string()),
-                  StrOrExpr::Str(process_style_name(str.value.to_string())),
-                ),
+                Lit::Str(str) => StrOrExpr::Str(str.value.to_string()),
                 _ => unreachable!(),
               },
-              Expr::Ident(name) => (
-                StrOrExpr::Expr(Expr::Ident(name.clone())),
-                StrOrExpr::Expr(utils::call_framework_fn(
-                  "___FRAMEWORK_JS_STYLE_NAME___",
-                  vec![Box::new(Expr::Ident(name)).into()],
-                )),
-              ),
+              Expr::Ident(name) => StrOrExpr::Expr(Expr::Ident(name.clone())),
               _ => unreachable!(),
             },
             _ => unreachable!(),
           };
-
-          // let a = match processed_key {
-          //   Err(expr) => &expr,
-          //   Ok(a) => &Expr::Lit(Lit::Str(a.into())),
-          // };
 
           let value = match &*value {
             Expr::Ident(_) | Expr::Tpl(_) => StrOrExpr::Expr(utils::call_framework_fn(
@@ -92,23 +74,31 @@ pub fn style_object_to_string(obj: ObjectLit) -> Tpl {
               match &key {
                 StrOrExpr::Str(key) => match lit {
                   Lit::Str(s) => StrOrExpr::Str(s.value.to_string()),
-                  Lit::JSXText(_) => unimplemented!(), // What is this exactly?
-                  Lit::Num(num) => StrOrExpr::Str(if num.value == 0.0 {
-                    "0".into()
+                  Lit::JSXText(_) => unimplemented!("JSXText as a value for style?"), // What is this exactly?
+                  Lit::Num(num) => StrOrExpr::Str(if key.starts_with("--") {
+                    num.to_string()
                   } else {
-                    if is_unitless_number(&key) {
-                      num.to_string()
+                    if num.value == 0.0 {
+                      "0".into()
                     } else {
-                      format!("{num}px")
+                      if is_unitless_number(&key) {
+                        num.to_string()
+                      } else {
+                        format!("{num}px")
+                      }
                     }
                   }),
-                  Lit::BigInt(num) => StrOrExpr::Str(if num.value.is_zero() {
-                    "0".into()
+                  Lit::BigInt(num) => StrOrExpr::Str(if key.starts_with("--") {
+                    num.value.to_string()
                   } else {
-                    if is_unitless_number(&key) {
-                      num.value.to_string()
+                    if num.value.is_zero() {
+                      "0".into()
                     } else {
-                      format!("{}px", num.value.to_string())
+                      if is_unitless_number(&key) {
+                        num.value.to_string()
+                      } else {
+                        format!("{}px", num.value.to_string())
+                      }
                     }
                   }),
                   Lit::Bool(b) => StrOrExpr::Str(b.value.to_string()),
@@ -140,25 +130,16 @@ pub fn style_object_to_string(obj: ObjectLit) -> Tpl {
             StrOrExpr::Str(s) => tlp.append_quasi(s),
             StrOrExpr::Expr(expr) => tlp.append_expr(expr),
           }
-
-          // if let Err(expr) = processed_key {
-          //   // A
-          // } else {
-          //   // B
-          // }
-
-          // unimplemented!();
-          // let str: &str = key.as_ref();
-          // tlp.append_quasi(process_style_name(str.to_string()));
-          // tlp.append_quasi(": ");
-          // tlp.append_expr(Expr::Ident(key));
         }
         _ => unreachable!(
           "Other `Prop` enumerations should never be present on the `style` component!"
         ),
       },
       PropOrSpread::Spread(spread) => {
-        // B
+        tlp.append_expr(utils::call_framework_fn(
+          "___FRAMEWORK_JS_STYLE_OBJECT___",
+          vec![spread.expr.into()],
+        ));
       }
     }
   }
@@ -176,6 +157,13 @@ fn process_style_name<'a>(name: String) -> &'static str {
 
   if let Some(name) = map.get(&name) {
     return (*name) as &'static str;
+  }
+
+  if name.starts_with("--") {
+    let value = escape_html(name.clone());
+    map.insert(name.clone(), Box::new(value).leak());
+
+    return map.get(&name).unwrap();
   }
 
   let value = escape_html(hyphenate_style_name(&name));

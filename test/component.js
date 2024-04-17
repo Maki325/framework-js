@@ -4,27 +4,27 @@ async function Coffee({ hotOrIced, children }) {
     const coffees = await res.json();
     await new Promise((resolve)=>setTimeout(()=>resolve(), 300));
     return (()=>{
-        const _SG6IBxDUvS2VAtp8 = [];
+        const _k8YIKRf1yQ0pXztX = [];
         return [
             `<ul>
 
       ${global.___FRAMEWORK_JS_STRINGIFY___(coffees.map((coffee)=>(()=>{
-                    const _SG6IBxDUvS2VAtp8 = [];
+                    const _k8YIKRf1yQ0pXztX = [];
                     return [
-                        `<li>${global.___FRAMEWORK_JS_STRINGIFY___(coffee.title, _SG6IBxDUvS2VAtp8)}</li>`,
-                        (_ZrUsbfP7Cd5n)=>{
-                            const _k6AqoD0mngpO = _SG6IBxDUvS2VAtp8.map((_JXz7rPP3EJ1m)=>_JXz7rPP3EJ1m(_ZrUsbfP7Cd5n));
-                            return Promise.allSettled(_k6AqoD0mngpO);
+                        `<li>${global.___FRAMEWORK_JS_STRINGIFY___(coffee.title, _k8YIKRf1yQ0pXztX)}</li>`,
+                        (_7tKMUIkV9tj1)=>{
+                            const _6IQk0MquA7be = _k8YIKRf1yQ0pXztX.map((_l4JD9bGyf5Bg)=>_l4JD9bGyf5Bg(_7tKMUIkV9tj1));
+                            return Promise.allSettled(_6IQk0MquA7be);
                         }
                     ];
-                })()), _SG6IBxDUvS2VAtp8)}
+                })()), _k8YIKRf1yQ0pXztX)}
 
-      ${global.___FRAMEWORK_JS_STRINGIFY___(children, _SG6IBxDUvS2VAtp8)}
+      ${global.___FRAMEWORK_JS_STRINGIFY___(children, _k8YIKRf1yQ0pXztX)}
 
     </ul>`,
-            (_H8gVgvz4hKTy)=>{
-                const _oHVj7goKooNL = _SG6IBxDUvS2VAtp8.map((_WgRkdRgwTYxz)=>_WgRkdRgwTYxz(_H8gVgvz4hKTy));
-                return Promise.allSettled(_oHVj7goKooNL);
+            (_IQZiGOtWFR0u)=>{
+                const _hX0yYkmfSu9r = _k8YIKRf1yQ0pXztX.map((_HmihAMog9Aer)=>_HmihAMog9Aer(_IQZiGOtWFR0u));
+                return Promise.allSettled(_hX0yYkmfSu9r);
             }
         ];
     })();
@@ -32,17 +32,21 @@ async function Coffee({ hotOrIced, children }) {
 const common = {
     Hello: function Hello({ name }) {
         const fontSize = '2em';
+        const bStyle = {
+            color: 'var(--test)',
+            '--aa': '"hello"'
+        };
         return (()=>{
-            const _SG6IBxDUvS2VAtp8 = [];
+            const _k8YIKRf1yQ0pXztX = [];
             return [
-                `<p style="font-size: ${global.___FRAMEWORK_JS_STYLE_VALUE___(fontSize)};color: red;margin: 0;padding: 0">
+                `<p style="font-size: ${global.___FRAMEWORK_JS_STYLE_VALUE___(fontSize, "fontSize")};color: red;margin: 0;padding: 0;--test: #1234AA">
 
-        Hello <b>${global.___FRAMEWORK_JS_STRINGIFY___(name, _SG6IBxDUvS2VAtp8)}</b>!
+        Hello <b style="background-color: black;${global.___FRAMEWORK_JS_STYLE_OBJECT___(bStyle)}">${global.___FRAMEWORK_JS_STRINGIFY___(name, _k8YIKRf1yQ0pXztX)}</b>!
 
       </p>`,
-                (_uyNUUoZ5oHgG)=>{
-                    const _GquDnjxy5Gk6 = _SG6IBxDUvS2VAtp8.map((_sNunwx42q8nW)=>_sNunwx42q8nW(_uyNUUoZ5oHgG));
-                    return Promise.allSettled(_GquDnjxy5Gk6);
+                (_ckD7ctWJpMCo)=>{
+                    const _CiwI9wMicLWR = _k8YIKRf1yQ0pXztX.map((_F1Sxz1PuhhU7)=>_F1Sxz1PuhhU7(_ckD7ctWJpMCo));
+                    return Promise.allSettled(_CiwI9wMicLWR);
                 }
             ];
         })();
@@ -50,34 +54,34 @@ const common = {
 };
 export default async function Page() {
     return (()=>{
-        const _SG6IBxDUvS2VAtp8 = [];
+        const _k8YIKRf1yQ0pXztX = [];
         return [
             `<div>
 
-      <div id="_qcEMxGGvJ2Di"></div>
+      <div id="_OST2hG7gejCx"></div>
 
-      <div id="_49oRclnWxFF9"></div>
+      <div id="_SxDuHqf7YfMp"></div>
 
     </div>`,
-            (_rymKHKiR5ofq)=>{
-                const _zOi2Hvno2nLb = _SG6IBxDUvS2VAtp8.map((_sclLtbkEtizh)=>_sclLtbkEtizh(_rymKHKiR5ofq));
-                _zOi2Hvno2nLb.push((async ()=>{
-                    const [_hN2auS28drjs, _qJyS1o6mK0Hj] = await common.Hello({
+            (_laL9lC3qtsQi)=>{
+                const _ivx41kjOiwHt = _k8YIKRf1yQ0pXztX.map((_L3TB0y3I5f9s)=>_L3TB0y3I5f9s(_laL9lC3qtsQi));
+                _ivx41kjOiwHt.push((async ()=>{
+                    const [_Ewfdyvis5h7S, _4EmMsEGzstTi] = await common.Hello({
                         children: "",
                         name: "Marko"
                     });
-                    _rymKHKiR5ofq.enqueue(`<script id="_ApRmNc5q7gaF">document.getElementById("_qcEMxGGvJ2Di").outerHTML = \`${_hN2auS28drjs.replace(/`/mg, "\\`")}\`;document.getElementById("_ApRmNc5q7gaF").remove();</script>`);
-                    _qJyS1o6mK0Hj(_rymKHKiR5ofq);
+                    _laL9lC3qtsQi.enqueue(`<script id="_puWM0MFOWOvx">document.getElementById("_OST2hG7gejCx").outerHTML = \`${_Ewfdyvis5h7S.replace(/`/mg, "\\`")}\`;document.getElementById("_puWM0MFOWOvx").remove();</script>`);
+                    _4EmMsEGzstTi(_laL9lC3qtsQi);
                 })());
-                _zOi2Hvno2nLb.push((async ()=>{
-                    const [_hN2auS28drjs, _qJyS1o6mK0Hj] = await Coffee({
+                _ivx41kjOiwHt.push((async ()=>{
+                    const [_Ewfdyvis5h7S, _4EmMsEGzstTi] = await Coffee({
                         children: "\n\n        <h1>STUFF`</h1>\n\n      ",
                         hotOrIced: "iced"
                     });
-                    _rymKHKiR5ofq.enqueue(`<script id="_UPvoIF7FEAor">document.getElementById("_49oRclnWxFF9").outerHTML = \`${_hN2auS28drjs.replace(/`/mg, "\\`")}\`;document.getElementById("_UPvoIF7FEAor").remove();</script>`);
-                    _qJyS1o6mK0Hj(_rymKHKiR5ofq);
+                    _laL9lC3qtsQi.enqueue(`<script id="_WmiKTM8emou5">document.getElementById("_SxDuHqf7YfMp").outerHTML = \`${_Ewfdyvis5h7S.replace(/`/mg, "\\`")}\`;document.getElementById("_WmiKTM8emou5").remove();</script>`);
+                    _4EmMsEGzstTi(_laL9lC3qtsQi);
                 })());
-                return Promise.allSettled(_zOi2Hvno2nLb);
+                return Promise.allSettled(_ivx41kjOiwHt);
             }
         ];
     })();

@@ -317,15 +317,31 @@ pub fn transform(
           };
           match value {
             JSXAttrValue::JSXExprContainer(container) => {
-              let JSXExpr::Expr(expr) = container.expr else {
-                continue;
+              let expr = match container.expr {
+                JSXExpr::Expr(expr) => expr,
+                JSXExpr::JSXEmptyExpr(empty) => {
+                  println!("No `value` expression for style \"{:#?}\"?", empty.span);
+                  continue;
+                }
               };
-              let Expr::Object(obj) = *expr else {
-                continue;
-              };
-              props.append_quasi(format!("style=\""));
-              props.append_expr(Expr::Tpl(utils::style_object_to_string(obj)));
-              props.append_quasi(format!("\""));
+
+              match *expr {
+                Expr::Object(obj) => {
+                  props.append_quasi(format!("style=\""));
+                  props.append_expr(Expr::Tpl(utils::style_object_to_string(obj)));
+                  props.append_quasi(format!("\""));
+                }
+                Expr::Ident(_) => {
+                  props.append_quasi(format!("style=\""));
+                  props.append_expr(utils::call_framework_fn(
+                    "___FRAMEWORK_JS_STYLE_OBJECT___",
+                    vec![expr.into()],
+                  ));
+                  props.append_quasi(format!("\""));
+                }
+                _ => unimplemented!("Unknown `value` expr type {:#?}!", expr),
+              }
+
               continue;
             }
             _ => unreachable!(),
