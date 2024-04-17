@@ -1,3 +1,5 @@
+import { PropsWithChildren } from 'react';
+
 async function Coffee({
   hotOrIced,
   children,
@@ -32,19 +34,39 @@ const common = {
           padding: 0,
           '--test': '#1234AA',
         }}>
-        Hello <b style={{ backgroundColor: 'black', ...bStyle }}>{name}</b>!
+        Hello{' '}
+        <b style={{ backgroundColor: '#fefefe', borderRadius: 10, padding: '0 5', ...bStyle }}>{name}</b>!
       </p>
     );
   },
 };
 
+type HTMLProps = {
+  title?: string;
+};
+
+function HTML({ title, children }: PropsWithChildren<HTMLProps>) {
+  return (
+    <html>
+      <head>{title ? <title>{title}</title> : null}</head>
+      <body
+        style={{
+          backgroundColor: '#121212',
+          color: 'white',
+        }}>
+        {children}
+      </body>
+    </html>
+  );
+}
+
 export default async function Page() {
   return (
-    <div>
+    <HTML>
       <common.Hello name="Marko" />
       <Coffee hotOrIced="iced">
         <h1>STUFF`</h1>
       </Coffee>
-    </div>
+    </HTML>
   );
 }
