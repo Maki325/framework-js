@@ -407,12 +407,22 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
         };
         let mut created = ToCreateAsync::with_capacity(8);
 
-        let (first, _) = transform(self, jsx_element, &mut created);
+        let (first, component_type) = transform(self, jsx_element, &mut created);
 
         let controller_name: Ident = utils::generate_random_variable_name(12).as_str().into();
 
         let html_ident: Ident = utils::generate_random_variable_name(12).as_str().into();
         let later_fn_ident: Ident = utils::generate_random_variable_name(12).as_str().into();
+
+        // We have to wrap the component in a stringify call
+        // If it's a custom one, as it returns an array, and
+        // Not a string, as the server expects
+        let first = match component_type {
+          ComponentType::HTML => first,
+          ComponentType::Custom(_) => {
+            utils::call_framework_stringify(Box::new(first), self.later_create_ident.clone())
+          }
+        };
 
         let array_name: Ident = utils::generate_random_variable_name(12).as_str().into();
 
