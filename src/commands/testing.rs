@@ -22,8 +22,8 @@ pub struct TestCommandInfo {
 }
 
 pub fn testing(info: TestCommandInfo) {
-  let input_file = utils::make_abs_path(info.input).unwrap();
-  let output_file = utils::make_abs_path(info.output).unwrap();
+  let input_file = utils::path::make_abs_path(info.input).unwrap();
+  let output_file = utils::path::make_abs_path(info.output).unwrap();
 
   let cm = Arc::<SourceMap>::default();
 

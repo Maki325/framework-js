@@ -1,36 +1,7 @@
+import './impl.js';
 import { createServer } from 'http';
 import Page from './component.js';
 import { Readable } from 'stream';
-
-global.___FRAMEWORK_JS_STRINGIFY___ = (item, toCreate) => {
-  if (Array.isArray(item)) {
-    if (
-      item.length == 2 &&
-      typeof item[0] === 'string' &&
-      typeof item[1] === 'function'
-    ) {
-      toCreate.push(item[1]);
-      return item[0];
-    }
-    return item.map(value => {
-      if (
-        Array.isArray(value) &&
-        value.length == 2 &&
-        typeof value[0] === 'string' &&
-        typeof value[1] === 'function'
-      ) {
-        toCreate.push(value[1]);
-        return value[0];
-      } else {
-        return value;
-      }
-    }).join('');
-  } else if (typeof item === 'object') {
-    throw new Exception('Objects are not valid as a JSX child!');
-  } else {
-    return item;
-  }
-}
 
 async function main() {
   const server = createServer(async (req, res) => {
