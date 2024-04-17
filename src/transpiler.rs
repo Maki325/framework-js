@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
   tpl_wrapper::TplWrapper,
-  utils::{self, Stringify},
+  utils::{self, stringify::Stringify},
 };
 use phf::phf_map;
 use swc;
@@ -153,7 +153,7 @@ impl Stringify for CustomComponent {
   fn stringify(self) -> String {
     match self {
       CustomComponent::Ident(i) => i.stringify(),
-      CustomComponent::Member(m) => utils::stringify_jsx_member_expr(m),
+      CustomComponent::Member(m) => utils::stringify::stringify_jsx_member_expr(m),
     }
   }
 }
@@ -309,7 +309,28 @@ pub fn transform(
         props.append_quasi(").map(([key, value]) => `${key}=\"${value ? (typeof value === 'string' ? value : (value instanceof RegExp ? value.toString() : JSON.stringify(value))).replace(/\"/mg, '\\\\\"') : 'true'}\"`).join(' ')}");
       }
       JSXAttrOrSpread::JSXAttr(attr) => {
-        let prop_name = utils::stringify_jsx_attr_name(attr.name);
+        let prop_name = utils::stringify::stringify_jsx_attr_name(attr.name);
+
+        if prop_name == "style" {
+          let Some(value) = attr.value else {
+            continue;
+          };
+          match value {
+            JSXAttrValue::JSXExprContainer(container) => {
+              let JSXExpr::Expr(expr) = container.expr else {
+                continue;
+              };
+              let Expr::Object(obj) = *expr else {
+                continue;
+              };
+              props.append_quasi(format!("style=\""));
+              props.append_expr(Expr::Tpl(utils::style_object_to_string(obj)));
+              props.append_quasi(format!("\""));
+              continue;
+            }
+            _ => unreachable!(),
+          }
+        }
 
         let prop_name = match PROP_NAME_MAP.get(&prop_name) {
           Some(name) => name.to_string(),
@@ -320,27 +341,24 @@ pub fn transform(
         match attr.value {
           None => props.append_quasi("true\""),
           Some(value) => {
-            let value = match value {
-              JSXAttrValue::Lit(lit) => lit.stringify(),
+            match value {
+              JSXAttrValue::Lit(lit) => props.append_lit(lit),
               JSXAttrValue::JSXExprContainer(container) => match container.expr {
-                JSXExpr::JSXEmptyExpr(_) => "true".to_string(),
-                JSXExpr::Expr(expr) => utils::expr_to_string(&compiler, &expr),
+                JSXExpr::JSXEmptyExpr(_) => props.append_quasi("true"),
+                JSXExpr::Expr(expr) => props.append_expr(*expr),
               },
               JSXAttrValue::JSXElement(el) => {
                 match utils::process_transformed_jsx(transform(v, el, to_create), v, to_create) {
                   utils::Processed::Async(div) => props.append_quasi(div),
                   utils::Processed::Sync(transformed) => props.append_expr(transformed),
-                };
-                continue;
+                }
               }
               JSXAttrValue::JSXFragment(frag) => {
                 for child in frag.children {
                   props.append_element_child(v, child, to_create);
                 }
-                continue;
               }
             };
-            props.append_quasi(utils::escape_string(value));
             props.append_quasi("\"");
           }
         }
@@ -348,7 +366,7 @@ pub fn transform(
     }
   }
 
-  let name = utils::stringify_jsx_element_name(name);
+  let name = utils::stringify::stringify_jsx_element_name(name);
 
   let mut shell = TplWrapper::new();
 

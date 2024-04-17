@@ -21,8 +21,9 @@ async function Coffee({
 
 const common = {
   Hello: function Hello({ name }: { name: string }) {
+    const fontSize = '2em';
     return (
-      <p style="font-size: 2em">
+      <p style={{ fontSize, color: 'red', margin: 0, padding: 0 }}>
         Hello <b>{name}</b>!
       </p>
     );

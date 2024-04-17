@@ -1,6 +1,6 @@
 use crate::{
   transpiler::{self, ToCreateAsync, TranspileVisitor},
-  utils::{self, Stringify},
+  utils::{self, stringify::Stringify},
 };
 use swc_common::util::take::Take;
 use swc_ecma_ast::{

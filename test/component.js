@@ -4,44 +4,45 @@ async function Coffee({ hotOrIced, children }) {
     const coffees = await res.json();
     await new Promise((resolve)=>setTimeout(()=>resolve(), 300));
     return (()=>{
-        const _gNYEFyfpOte4Zn2r = [];
+        const _SG6IBxDUvS2VAtp8 = [];
         return [
             `<ul>
 
       ${global.___FRAMEWORK_JS_STRINGIFY___(coffees.map((coffee)=>(()=>{
-                    const _gNYEFyfpOte4Zn2r = [];
+                    const _SG6IBxDUvS2VAtp8 = [];
                     return [
-                        `<li>${global.___FRAMEWORK_JS_STRINGIFY___(coffee.title, _gNYEFyfpOte4Zn2r)}</li>`,
-                        (_k68yWAKK2odz)=>{
-                            const _wZ0XT2XuhjK3 = _gNYEFyfpOte4Zn2r.map((_Fe5efERbDO7u)=>_Fe5efERbDO7u(_k68yWAKK2odz));
-                            return Promise.allSettled(_wZ0XT2XuhjK3);
+                        `<li>${global.___FRAMEWORK_JS_STRINGIFY___(coffee.title, _SG6IBxDUvS2VAtp8)}</li>`,
+                        (_ZrUsbfP7Cd5n)=>{
+                            const _k6AqoD0mngpO = _SG6IBxDUvS2VAtp8.map((_JXz7rPP3EJ1m)=>_JXz7rPP3EJ1m(_ZrUsbfP7Cd5n));
+                            return Promise.allSettled(_k6AqoD0mngpO);
                         }
                     ];
-                })()), _gNYEFyfpOte4Zn2r)}
+                })()), _SG6IBxDUvS2VAtp8)}
 
-      ${global.___FRAMEWORK_JS_STRINGIFY___(children, _gNYEFyfpOte4Zn2r)}
+      ${global.___FRAMEWORK_JS_STRINGIFY___(children, _SG6IBxDUvS2VAtp8)}
 
     </ul>`,
-            (_KDPQibfCgabu)=>{
-                const _A7zZejiIJ5vI = _gNYEFyfpOte4Zn2r.map((_wDWsBj23sUNF)=>_wDWsBj23sUNF(_KDPQibfCgabu));
-                return Promise.allSettled(_A7zZejiIJ5vI);
+            (_H8gVgvz4hKTy)=>{
+                const _oHVj7goKooNL = _SG6IBxDUvS2VAtp8.map((_WgRkdRgwTYxz)=>_WgRkdRgwTYxz(_H8gVgvz4hKTy));
+                return Promise.allSettled(_oHVj7goKooNL);
             }
         ];
     })();
 }
 const common = {
     Hello: function Hello({ name }) {
+        const fontSize = '2em';
         return (()=>{
-            const _gNYEFyfpOte4Zn2r = [];
+            const _SG6IBxDUvS2VAtp8 = [];
             return [
-                `<p style="font-size: 2em">
+                `<p style="font-size: ${global.___FRAMEWORK_JS_STYLE_VALUE___(fontSize)};color: red;margin: 0;padding: 0">
 
-        Hello <b>${global.___FRAMEWORK_JS_STRINGIFY___(name, _gNYEFyfpOte4Zn2r)}</b>!
+        Hello <b>${global.___FRAMEWORK_JS_STRINGIFY___(name, _SG6IBxDUvS2VAtp8)}</b>!
 
       </p>`,
-                (_SqWfj92EC12J)=>{
-                    const _t9NI02MtQxTh = _gNYEFyfpOte4Zn2r.map((_Vh9XrI6AZWjI)=>_Vh9XrI6AZWjI(_SqWfj92EC12J));
-                    return Promise.allSettled(_t9NI02MtQxTh);
+                (_uyNUUoZ5oHgG)=>{
+                    const _GquDnjxy5Gk6 = _SG6IBxDUvS2VAtp8.map((_sNunwx42q8nW)=>_sNunwx42q8nW(_uyNUUoZ5oHgG));
+                    return Promise.allSettled(_GquDnjxy5Gk6);
                 }
             ];
         })();
@@ -49,34 +50,34 @@ const common = {
 };
 export default async function Page() {
     return (()=>{
-        const _gNYEFyfpOte4Zn2r = [];
+        const _SG6IBxDUvS2VAtp8 = [];
         return [
             `<div>
 
-      <div id="_PeW2UIzIeocP"></div>
+      <div id="_qcEMxGGvJ2Di"></div>
 
-      <div id="_Cj5vxbwILu0W"></div>
+      <div id="_49oRclnWxFF9"></div>
 
     </div>`,
-            (_Rl9lrk4lb7Vg)=>{
-                const _s9fAtJtFxlV8 = _gNYEFyfpOte4Zn2r.map((_OGdRzFJKURE0)=>_OGdRzFJKURE0(_Rl9lrk4lb7Vg));
-                _s9fAtJtFxlV8.push((async ()=>{
-                    const [_5pwBYZzIGwsV, _SmX0VSNldthv] = await common.Hello({
+            (_rymKHKiR5ofq)=>{
+                const _zOi2Hvno2nLb = _SG6IBxDUvS2VAtp8.map((_sclLtbkEtizh)=>_sclLtbkEtizh(_rymKHKiR5ofq));
+                _zOi2Hvno2nLb.push((async ()=>{
+                    const [_hN2auS28drjs, _qJyS1o6mK0Hj] = await common.Hello({
                         children: "",
                         name: "Marko"
                     });
-                    _Rl9lrk4lb7Vg.enqueue(`<script id="_dJrYGFESk4J1">document.getElementById("_PeW2UIzIeocP").outerHTML = \`${_5pwBYZzIGwsV.replace(/`/mg, "\\`")}\`;document.getElementById("_dJrYGFESk4J1").remove();</script>`);
-                    _SmX0VSNldthv(_Rl9lrk4lb7Vg);
+                    _rymKHKiR5ofq.enqueue(`<script id="_ApRmNc5q7gaF">document.getElementById("_qcEMxGGvJ2Di").outerHTML = \`${_hN2auS28drjs.replace(/`/mg, "\\`")}\`;document.getElementById("_ApRmNc5q7gaF").remove();</script>`);
+                    _qJyS1o6mK0Hj(_rymKHKiR5ofq);
                 })());
-                _s9fAtJtFxlV8.push((async ()=>{
-                    const [_5pwBYZzIGwsV, _SmX0VSNldthv] = await Coffee({
+                _zOi2Hvno2nLb.push((async ()=>{
+                    const [_hN2auS28drjs, _qJyS1o6mK0Hj] = await Coffee({
                         children: "\n\n        <h1>STUFF`</h1>\n\n      ",
                         hotOrIced: "iced"
                     });
-                    _Rl9lrk4lb7Vg.enqueue(`<script id="_51WMMJy7KnmZ">document.getElementById("_Cj5vxbwILu0W").outerHTML = \`${_5pwBYZzIGwsV.replace(/`/mg, "\\`")}\`;document.getElementById("_51WMMJy7KnmZ").remove();</script>`);
-                    _SmX0VSNldthv(_Rl9lrk4lb7Vg);
+                    _rymKHKiR5ofq.enqueue(`<script id="_UPvoIF7FEAor">document.getElementById("_49oRclnWxFF9").outerHTML = \`${_hN2auS28drjs.replace(/`/mg, "\\`")}\`;document.getElementById("_UPvoIF7FEAor").remove();</script>`);
+                    _qJyS1o6mK0Hj(_rymKHKiR5ofq);
                 })());
-                return Promise.allSettled(_s9fAtJtFxlV8);
+                return Promise.allSettled(_zOi2Hvno2nLb);
             }
         ];
     })();
