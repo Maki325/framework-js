@@ -1,4 +1,4 @@
-use crate::transpiler::{ComponentType, ToCreateAsync, TransfromedJSX, TranspileVisitor};
+use crate::transpiler::{ComponentType, ToCreateAsync, TransfromedJSX, TranspileVisitor, VarType};
 use rand::{distributions::Alphanumeric, Rng};
 use stringify::Stringify;
 use swc::PrintArgs;
@@ -64,8 +64,15 @@ pub fn process_transformed_jsx(
       // We match `true` by default, because if it's async,
       // and we didn't treat it as such code will break
       true,
-      |t| t.is_async(),
+      |t| match t {
+        // If the type is VarType::Other, chances are that
+        // We fell thru in the typechecker, so we're gonna
+        // Just going with the default `true`
+        VarType::Other => true,
+        _ => t.is_async(),
+      },
     );
+
     if false == is_async {
       return Processed::Sync(call_framework_stringify(
         Box::new(transformed),

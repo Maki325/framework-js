@@ -110,6 +110,7 @@ impl TranspileVisitor<'_> {
         .gt(self.get_expr_type(&cond.alt)),
       // Expr::Fn() => Dont really know? Probably isnt JSX
       // Expr::Fn(_) => self.last_arrow_function_is_jsx,
+      Expr::Arrow(_) => self.last_arrow_function_return_type,
       Expr::Ident(ident) => self.is_ident_jsx(ident),
       // Expr::Member() => TODO: Implement dis lol
       Expr::Paren(paren) => self.get_expr_type(&paren.expr),
@@ -135,6 +136,7 @@ static PROP_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
   "className" => "class",
 };
 
+#[derive(Debug)]
 pub enum CustomComponent {
   Ident(Ident),
   Member(JSXMemberExpr),
@@ -158,6 +160,7 @@ impl Stringify for CustomComponent {
   }
 }
 
+#[derive(Debug)]
 pub enum ComponentType {
   Custom(CustomComponent),
   HTML,
@@ -621,7 +624,18 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
   fn visit_mut_arrow_expr(&mut self, arrow: &mut swc_ecma_ast::ArrowExpr) {
     self.function_variable_types.push(IsVariableJsxMap::new());
 
+    let return_type = if let Some(expr) = arrow.body.as_expr() {
+      Some(self.get_expr_type(expr))
+    } else {
+      None
+    };
+
     arrow.visit_mut_children_with(self);
+
+    if let Some(return_type) = return_type {
+      self.return_type = return_type;
+    }
+
     if arrow.is_async {
       self.return_type = self.return_type.awaited()
     };
@@ -631,6 +645,8 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
   }
 
   fn visit_mut_assign_expr(&mut self, assign: &mut swc_ecma_ast::AssignExpr) {
+    assign.visit_mut_children_with(self);
+
     let is_jsx = self.get_expr_type(&assign.right);
     if let Some(last) = self.function_variable_types.last_mut() {
       match &assign.left {
@@ -643,11 +659,11 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
         _ => {}
       }
     }
-
-    assign.visit_mut_children_with(self);
   }
 
   fn visit_mut_var_declarator(&mut self, declarator: &mut VarDeclarator) {
+    declarator.visit_mut_children_with(self);
+
     if let Some(init) = &declarator.init {
       let is_jsx = self.get_expr_type(init);
       if let Some(last) = self.function_variable_types.last_mut() {
@@ -659,8 +675,6 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
         }
       }
     }
-
-    declarator.visit_mut_children_with(self);
   }
 
   fn visit_mut_return_stmt(&mut self, ret: &mut ReturnStmt) {
