@@ -483,13 +483,13 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
             })),
           });
 
-          let later_fn_call = Stmt::Expr(ExprStmt {
+          let later_fn_call = Stmt::Return(ReturnStmt {
             span: Span::default(),
-            expr: Box::new(Expr::Call(CallExpr {
+            arg: Some(Box::new(Expr::Call(CallExpr {
               callee: Callee::Expr(Box::new(Expr::Ident(later_fn_ident.clone().into()))),
               args: vec![ExprOrSpread::from(Box::new(controller_name.clone().into()))],
               ..CallExpr::dummy()
-            })),
+            }))),
           });
 
           Stmt::Expr(ExprStmt {
