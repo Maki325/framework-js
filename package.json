@@ -2,5 +2,8 @@
   "dependencies": {
     "@types/react": "^18.2.75",
     "typescript": "^5.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7"
   }
 }

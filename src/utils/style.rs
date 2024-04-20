@@ -302,3 +302,202 @@ const UNITLESS_NUMBERS: &'static [&'static str] = &[
 fn is_unitless_number(name: &str) -> bool {
   return UNITLESS_NUMBERS.iter().any(|a| a.eq(&name));
 }
+
+#[cfg(test)]
+mod test {
+
+  #[test]
+  fn escape_html() {
+    assert_eq!(
+      super::escape_html("{\"key\": \"Value\"}".into()),
+      "{&quot;key&quot;: &quot;Value&quot;}"
+    );
+
+    assert_eq!(
+      super::escape_html("Marko & Stuff".into()),
+      "Marko &amp; Stuff"
+    );
+
+    assert_eq!(
+      super::escape_html("Marko's Code".into()),
+      "Marko&#x27;s Code"
+    );
+
+    assert_eq!(
+      super::escape_html("<html></html>".into()),
+      "&lt;html&gt;&lt;/html&gt;"
+    );
+  }
+
+  #[test]
+  fn hyphenate_style_name() {
+    assert_eq!(
+      super::hyphenate_style_name("backgroundColor"),
+      "background-color"
+    );
+
+    assert_eq!(
+      super::hyphenate_style_name("MozTransition"),
+      "-moz-transition"
+    );
+
+    assert_eq!(
+      super::hyphenate_style_name("msTransition"),
+      "-ms-transition"
+    );
+  }
+
+  #[test]
+  fn process_style_name() {
+    assert_eq!(
+      super::process_style_name("backgroundColor".into()),
+      "background-color"
+    );
+
+    assert_eq!(
+      super::process_style_name("MozTransition".into()),
+      "-moz-transition"
+    );
+
+    assert_eq!(
+      super::process_style_name("msTransition".into()),
+      "-ms-transition"
+    );
+
+    assert_eq!(
+      super::process_style_name("--custom-css-var".into()),
+      "--custom-css-var"
+    );
+
+    assert_eq!(
+      super::process_style_name("--cust'om-css-var".into()),
+      "--cust&#x27;om-css-var"
+    );
+  }
+
+  fn convert_src<F: Fn(swc_ecma_ast::Program) -> swc_ecma_ast::Program>(
+    f: F,
+  ) -> impl Fn(String) -> String {
+    use anyhow::Context;
+    use std::{path::PathBuf, sync::Arc};
+    use swc::{
+      config::{Config, JscConfig, Options},
+      try_with_handler,
+    };
+    use swc_common::{SourceMap, GLOBALS};
+    use swc_ecma_ast::EsVersion;
+    use swc_ecma_parser::{Syntax, TsConfig};
+
+    return move |src| {
+      let cm = Arc::<SourceMap>::default();
+
+      let c = swc::Compiler::new(cm.clone());
+
+      let code = GLOBALS
+        .set(&Default::default(), || {
+          try_with_handler(cm.clone(), Default::default(), |handler| {
+            let path_buf = PathBuf::from("test.js");
+            let fm = cm.new_source_file(path_buf.into(), src);
+
+            let output = c
+              .parse_js(
+                fm,
+                handler,
+                EsVersion::EsNext,
+                Syntax::Typescript(TsConfig {
+                  tsx: true,
+                  ..Default::default()
+                }),
+                swc::config::IsModule::Bool(true),
+                None,
+              )
+              .context("failed to parse file")?;
+
+            let output = f(output);
+
+            c.process_js(
+              handler,
+              output,
+              &Options {
+                config: Config {
+                  minify: true.into(),
+                  jsc: JscConfig {
+                    target: Some(EsVersion::EsNext),
+                    ..JscConfig::default()
+                  },
+                  ..Config::default()
+                },
+                ..Options::default()
+              },
+            )
+            .context("failed to process file")
+          })
+        })
+        .unwrap();
+
+      return code.code;
+    };
+  }
+
+  #[test]
+  fn style_object_to_string() {
+    let convert = convert_src(|mut output| {
+      use swc_common::Span;
+      use swc_ecma_ast::Expr;
+      use swc_ecma_ast::{ExprStmt, ModuleItem, Program, Stmt};
+
+      let Program::Module(module) = &mut output else {
+        unreachable!();
+      };
+      let ModuleItem::Stmt(stmt) = module.body.pop().unwrap() else {
+        unreachable!();
+      };
+      let Stmt::Expr(expr_stmt) = stmt else {
+        unreachable!();
+      };
+      let Expr::Paren(paren_expr) = *expr_stmt.expr else {
+        unreachable!();
+      };
+      let Expr::Object(obj) = *paren_expr.expr else {
+        unreachable!();
+      };
+
+      let tpl = super::style_object_to_string(obj);
+
+      module.body.push(ModuleItem::Stmt(Stmt::Expr(ExprStmt {
+        span: Span::default(),
+        expr: Box::new(Expr::Tpl(tpl)),
+      })));
+
+      output
+    });
+
+    assert_eq!(
+      convert("({backgroundColor: '#121212'})".into()),
+      "`background-color: #121212`;"
+    );
+
+    assert_eq!(
+      convert("({backgroundColor: '#121212', color: 'white'})".into()),
+      "`background-color: #121212;color: white`;"
+    );
+
+    assert_eq!(convert("({fontSize: 16})".into()), "`font-size: 16px`;");
+
+    assert_eq!(convert("({margin: 0})".into()), "`margin: 0`;");
+
+    assert_eq!(convert("({'--test': 'hello'})".into()), "`--test: hello`;");
+
+    assert_eq!(
+      convert("({backgroundColor: '#121212', ...styles})".into()),
+      "`background-color: #121212;${global.___FRAMEWORK_JS_STYLE_OBJECT___(styles)}`;"
+    );
+
+    assert_eq!(
+      convert("({backgroundColor})".into()),
+      "`background-color: ${global.___FRAMEWORK_JS_STYLE_VALUE___(backgroundColor,\"backgroundColor\")}`;"
+    );
+
+    assert_eq!(convert("({flex: 1})".into()), "`flex: 1`;");
+  }
+}
