@@ -1,4 +1,7 @@
-use crate::transpiler::{ComponentType, ToCreateAsync, TransfromedJSX, TranspileVisitor, VarType};
+use crate::{
+  specs::type_info::ExportType,
+  transpiler::{ComponentType, ToCreateAsync, TransfromedJSX, TranspileVisitor},
+};
 use rand::{distributions::Alphanumeric, Rng};
 use stringify::Stringify;
 use swc::PrintArgs;
@@ -60,7 +63,7 @@ pub fn process_transformed_jsx(
   to_create: &mut ToCreateAsync,
 ) -> Processed {
   if let ComponentType::Custom(name) = custom {
-    let is_async = v.get_variable_type(&name.stringify()).map_or(
+    let is_async = v.typechecker.get_variable_type(&name.stringify()).map_or(
       // We match `true` by default, because if it's async,
       // and we didn't treat it as such code will break
       true,
@@ -68,7 +71,7 @@ pub fn process_transformed_jsx(
         // If the type is VarType::Other, chances are that
         // We fell thru in the typechecker, so we're gonna
         // Just going with the default `true`
-        VarType::Other => true,
+        ExportType::Other => true,
         _ => t.is_async(),
       },
     );
@@ -76,7 +79,7 @@ pub fn process_transformed_jsx(
     if false == is_async {
       return Processed::Sync(call_framework_stringify(
         Box::new(transformed),
-        v.later_create_ident.clone(),
+        v.typechecker.later_create_ident.clone(),
       ));
     }
 

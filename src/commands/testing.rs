@@ -1,13 +1,13 @@
 use crate::{transpiler::TranspileVisitor, utils};
 use anyhow::Context;
 use clap::Args;
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{cell::RefCell, fs, path::PathBuf, sync::Arc};
 use swc::{
   config::{Config, JscConfig, Options},
   try_with_handler,
 };
 use swc_common::{SourceMap, GLOBALS};
-use swc_core::ecma::visit::{as_folder, FoldWith};
+use swc_core::ecma::visit::{as_folder, FoldWith, VisitMut};
 use swc_ecma_ast::EsVersion;
 use swc_ecma_parser::{Syntax, TsConfig};
 
@@ -47,7 +47,11 @@ pub fn testing(info: TestCommandInfo) {
           )
           .context("failed to parse file")?;
 
-        let output = output.fold_with(&mut as_folder(TranspileVisitor::new(&c)));
+        let visitor = TranspileVisitor::new(&c);
+        // let visitor = visitor.borrow_mut();
+        // let visitor = *visitor;
+        // let output = output.fold_with(&mut as_folder(*visitor));
+        let output = output.fold_with(&mut as_folder(visitor.borrow_mut().as_mut()));
 
         c.process_js(
           handler,

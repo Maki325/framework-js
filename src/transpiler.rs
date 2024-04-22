@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 use crate::{
+  commands::common::{impl_typecheck_visits, TypecheckerCommon},
   tpl_wrapper::TplWrapper,
   utils::{self, stringify::Stringify},
 };
@@ -8,126 +9,35 @@ use phf::phf_map;
 use swc_common::{util::take::Take, Span};
 use swc_core::ecma::visit::{VisitMut, VisitMutWith};
 use swc_ecma_ast::{
-  ArrayLit, ArrayPat, ArrowExpr, AssignTarget, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl,
-  Expr, ExprOrSpread, ExprStmt, Ident, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName,
+  ArrayLit, ArrayPat, ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, Expr,
+  ExprOrSpread, ExprStmt, Ident, JSXAttrOrSpread, JSXAttrValue, JSXElement, JSXElementName,
   JSXExpr, JSXMemberExpr, JSXObject, KeyValueProp, Lit, MemberExpr, MemberProp, ObjectLit,
-  ParenExpr, Pat, Prop, PropName, PropOrSpread, Regex, ReturnStmt, SimpleAssignTarget, Stmt,
-  VarDecl, VarDeclKind, VarDeclarator,
+  ParenExpr, Pat, Prop, PropName, PropOrSpread, Regex, ReturnStmt, Stmt, VarDecl, VarDeclKind,
+  VarDeclarator,
 };
 
-#[derive(Debug, Clone, Copy)]
-pub enum VarType {
-  JSX,
-  AsyncJSX,
-  Other,
-  AsyncOther,
-}
-
-impl VarType {
-  pub fn is_async(self) -> bool {
-    match self {
-      VarType::AsyncJSX | VarType::AsyncOther => true,
-      VarType::JSX | VarType::Other => false,
-    }
-  }
-
-  fn awaited(self) -> VarType {
-    return match self {
-      VarType::JSX => VarType::AsyncJSX,
-      VarType::Other => VarType::AsyncOther,
-      _ => self,
-    };
-  }
-
-  // Biggest -> Lowest
-  // Awaited JSX -> JSX -> Awaited Other -> Other
-  fn priority(self) -> u8 {
-    return match self {
-      VarType::AsyncJSX => 3,
-      VarType::JSX => 2,
-      VarType::AsyncOther => 1,
-      VarType::Other => 0,
-    };
-  }
-
-  fn gt(self, other: VarType) -> VarType {
-    if self.priority() > other.priority() {
-      return self;
-    }
-    return other;
-  }
-}
-
-type IsVariableJsxMap = HashMap<String, VarType>;
-
 pub struct TranspileVisitor<'a> {
-  #[allow(unused)]
-  pub compiler: &'a swc::Compiler,
-
-  return_type: VarType,
-  pub later_create_ident: Ident,
-
-  pub function_variable_types: Vec<IsVariableJsxMap>,
-  last_arrow_function_return_type: VarType,
+  pub typechecker: TypecheckerCommon<'a, Self>,
 }
 
 impl TranspileVisitor<'_> {
-  pub fn new(compiler: &'_ swc::Compiler) -> TranspileVisitor {
-    return TranspileVisitor {
-      compiler,
+  pub fn new(compiler: &'_ swc::Compiler) -> Rc<RefCell<Box<TranspileVisitor<'_>>>> {
+    let transpiler = Rc::new(RefCell::new(Box::new(TranspileVisitor {
+      typechecker: TypecheckerCommon::new(compiler),
+    })));
 
-      return_type: VarType::Other,
-      later_create_ident: utils::generate_random_variable_name(16).as_str().into(),
+    let transpiler_clone = std::rc::Rc::clone(&transpiler);
 
-      function_variable_types: vec![IsVariableJsxMap::new()],
-      last_arrow_function_return_type: VarType::Other,
-    };
-  }
+    (&mut (*transpiler).borrow_mut())
+      .typechecker
+      .set_parent(transpiler_clone);
 
-  fn is_ident_jsx<S: AsRef<str>>(&self, name: S) -> VarType {
-    for map in self.function_variable_types.iter().rev() {
-      match map.get(name.as_ref()) {
-        None => continue,
-        Some(value) => return *value,
-      }
-    }
+    // let a = *(transpiler.as_ref());
 
-    return VarType::Other;
-  }
+    // return a;
 
-  fn get_expr_type<E: AsRef<Expr>>(&self, to_assign_expr: E) -> VarType {
-    match to_assign_expr.as_ref() {
-      Expr::JSXElement(_) | Expr::JSXFragment(_) => return VarType::JSX,
-      Expr::Assign(assign) => self.get_expr_type(&assign.right),
-      Expr::Await(expr) => self.get_expr_type(&expr.arg).awaited(),
-      Expr::Call(call) => match &call.callee {
-        Callee::Expr(e) => self.get_expr_type(e),
-        _ => VarType::Other,
-      },
-      Expr::Cond(cond) => self
-        .get_expr_type(&cond.cons)
-        .gt(self.get_expr_type(&cond.alt)),
-      // Expr::Fn() => Dont really know? Probably isnt JSX
-      // Expr::Fn(_) => self.last_arrow_function_is_jsx,
-      Expr::Arrow(_) => self.last_arrow_function_return_type,
-      Expr::Ident(ident) => self.is_ident_jsx(ident),
-      // Expr::Member() => TODO: Implement dis lol
-      Expr::Paren(paren) => self.get_expr_type(&paren.expr),
-      _ => return VarType::Other,
-    }
-  }
-
-  pub fn get_variable_type<S: AsRef<str>>(&self, name: S) -> Option<VarType> {
-    let name = name.as_ref();
-
-    for map in self.function_variable_types.iter().rev() {
-      let result = map.get(name);
-      if let Some(vt) = result {
-        return Some(*vt);
-      }
-    }
-
-    None
+    // return A(transpiler);
+    return transpiler;
   }
 }
 
@@ -188,7 +98,7 @@ pub fn transform(
   jsx_element: Box<JSXElement>,
   to_create: &mut ToCreateAsync,
 ) -> TransfromedJSX {
-  let compiler = &v.compiler;
+  let compiler = &v.typechecker.compiler;
   let opening = jsx_element.opening;
   let name = opening.name;
 
@@ -400,9 +310,11 @@ pub fn transform(
 
 impl<'a> VisitMut for TranspileVisitor<'a> {
   fn visit_mut_expr(&mut self, n: &mut Expr) {
+    println!("HERE! {n:?}");
     n.visit_mut_children_with(self);
 
     if let Expr::JSXElement(_) = n {
+      println!("REPLACE!");
       n.map_with_mut(|n| {
         let Expr::JSXElement(jsx_element) = n else {
           unreachable!()
@@ -536,7 +448,9 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
                     name: Pat::Ident(array_name.clone().into()),
                     init: Some(Box::new(Expr::Call(CallExpr {
                       callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
-                        obj: Box::new(Expr::Ident(self.later_create_ident.clone().into())),
+                        obj: Box::new(Expr::Ident(
+                          self.typechecker.later_create_ident.clone().into(),
+                        )),
                         prop: MemberProp::Ident("map".into()),
                         ..MemberExpr::dummy()
                       }))),
@@ -591,7 +505,7 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
                     kind: VarDeclKind::Const,
                     declare: false,
                     decls: vec![VarDeclarator {
-                      name: Pat::Ident(self.later_create_ident.clone().into()),
+                      name: Pat::Ident(self.typechecker.later_create_ident.clone().into()),
                       init: Some(Box::new(Expr::Array(ArrayLit::dummy()))),
                       ..VarDeclarator::dummy()
                     }],
@@ -620,83 +534,5 @@ impl<'a> VisitMut for TranspileVisitor<'a> {
     }
   }
 
-  fn visit_mut_arrow_expr(&mut self, arrow: &mut swc_ecma_ast::ArrowExpr) {
-    self.function_variable_types.push(IsVariableJsxMap::new());
-
-    let return_type = if let Some(expr) = arrow.body.as_expr() {
-      Some(self.get_expr_type(expr))
-    } else {
-      None
-    };
-
-    arrow.visit_mut_children_with(self);
-
-    if let Some(return_type) = return_type {
-      self.return_type = return_type;
-    }
-
-    if arrow.is_async {
-      self.return_type = self.return_type.awaited()
-    };
-    self.last_arrow_function_return_type = self.return_type;
-
-    self.function_variable_types.pop();
-  }
-
-  fn visit_mut_assign_expr(&mut self, assign: &mut swc_ecma_ast::AssignExpr) {
-    assign.visit_mut_children_with(self);
-
-    let is_jsx = self.get_expr_type(&assign.right);
-    if let Some(last) = self.function_variable_types.last_mut() {
-      match &assign.left {
-        AssignTarget::Simple(simple) => match simple {
-          SimpleAssignTarget::Ident(ident) => {
-            last.insert(ident.id.sym.as_str().to_owned(), is_jsx);
-          }
-          _ => {}
-        },
-        _ => {}
-      }
-    }
-  }
-
-  fn visit_mut_var_declarator(&mut self, declarator: &mut VarDeclarator) {
-    declarator.visit_mut_children_with(self);
-
-    if let Some(init) = &declarator.init {
-      let is_jsx = self.get_expr_type(init);
-      if let Some(last) = self.function_variable_types.last_mut() {
-        match &declarator.name {
-          Pat::Ident(i) => {
-            last.insert(i.id.sym.as_str().to_owned(), is_jsx);
-          }
-          _ => {}
-        }
-      }
-    }
-  }
-
-  fn visit_mut_return_stmt(&mut self, ret: &mut ReturnStmt) {
-    let Some(arg) = &ret.arg else {
-      ret.visit_mut_children_with(self);
-      return;
-    };
-
-    self.return_type = self.get_expr_type(arg);
-
-    ret.visit_mut_children_with(self);
-  }
-
-  fn visit_mut_fn_decl(&mut self, decl: &mut swc_ecma_ast::FnDecl) {
-    self.function_variable_types.push(IsVariableJsxMap::new());
-    decl.visit_mut_children_with(self);
-    self.function_variable_types.pop();
-
-    if let Some(last) = self.function_variable_types.last_mut() {
-      if decl.function.is_async {
-        self.return_type = self.return_type.awaited()
-      };
-      last.insert(decl.ident.sym.as_str().to_owned(), self.return_type.clone());
-    }
-  }
+  impl_typecheck_visits!();
 }

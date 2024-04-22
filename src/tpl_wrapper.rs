@@ -138,7 +138,7 @@ impl TplWrapper {
           _ => expr,
         };
 
-        let expr = utils::call_framework_stringify(expr, v.later_create_ident.clone());
+        let expr = utils::call_framework_stringify(expr, v.typechecker.later_create_ident.clone());
 
         self.append_expr(expr);
       }
