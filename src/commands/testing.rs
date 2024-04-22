@@ -3,7 +3,6 @@ use anyhow::Context;
 use clap::Args;
 use std::{fs, path::PathBuf, sync::Arc};
 use swc::{
-  self,
   config::{Config, JscConfig, Options},
   try_with_handler,
 };

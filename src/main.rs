@@ -1,6 +1,9 @@
+#![feature(debug_closure_helpers)]
+
 use clap::{Parser, Subcommand};
 
 mod commands;
+mod specs;
 mod tpl_wrapper;
 mod transpiler;
 mod utils;
@@ -15,6 +18,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
   Test(commands::TestCommandInfo),
+  Typecheck(commands::TypecheckCommandInfo),
 }
 
 fn main() {
@@ -22,5 +26,6 @@ fn main() {
 
   match cli.command {
     Commands::Test(info) => commands::testing(info),
+    Commands::Typecheck(info) => commands::typecheck(info),
   }
 }

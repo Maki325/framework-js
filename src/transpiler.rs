@@ -5,7 +5,6 @@ use crate::{
   utils::{self, stringify::Stringify},
 };
 use phf::phf_map;
-use swc;
 use swc_common::{util::take::Take, Span};
 use swc_core::ecma::visit::{VisitMut, VisitMutWith};
 use swc_ecma_ast::{

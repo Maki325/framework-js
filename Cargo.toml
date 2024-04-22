@@ -17,3 +17,5 @@ clap = { version = "4.5.1", features = ["derive"] }
 rand = "0.8.5"
 lazy_static = "1.4.0"
 num-traits = "0.2.18"
+ring = "0.17.8"
+bincode = "2.0.0-rc.3"
