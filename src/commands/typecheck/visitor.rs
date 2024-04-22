@@ -11,12 +11,20 @@ pub struct TypecheckerVisitor<'a> {
   exports: &'a mut Exports,
 }
 
-impl<'a> TypecheckerVisitor<'a> {
-  pub fn new(compiler: &'a swc::Compiler, exports: &'a mut Exports) -> TypecheckerVisitor<'a> {
-    return TypecheckerVisitor {
+impl TypecheckerVisitor<'_> {
+  pub fn new<'a>(
+    compiler: &'a swc::Compiler,
+    exports: &'a mut Exports,
+  ) -> &'a mut TypecheckerVisitor<'a> {
+    let transpiler = Box::new(TypecheckerVisitor {
       typechecker: TypecheckerCommon::new(compiler),
       exports,
-    };
+    });
+
+    let transpiler = Box::leak(transpiler);
+    let ptr: *mut TypecheckerVisitor<'a> = transpiler;
+    transpiler.typechecker.set_parent(ptr);
+    return transpiler;
   }
 }
 

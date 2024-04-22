@@ -1,5 +1,3 @@
-use std::{borrow::Borrow, cell::RefCell, rc::Rc};
-
 use crate::{
   commands::common::{impl_typecheck_visits, TypecheckerCommon},
   tpl_wrapper::TplWrapper,
@@ -21,22 +19,14 @@ pub struct TranspileVisitor<'a> {
 }
 
 impl TranspileVisitor<'_> {
-  pub fn new(compiler: &'_ swc::Compiler) -> Rc<RefCell<Box<TranspileVisitor<'_>>>> {
-    let transpiler = Rc::new(RefCell::new(Box::new(TranspileVisitor {
+  pub fn new<'a>(compiler: &'a swc::Compiler) -> &'a mut TranspileVisitor<'a> {
+    let transpiler = Box::new(TranspileVisitor {
       typechecker: TypecheckerCommon::new(compiler),
-    })));
+    });
 
-    let transpiler_clone = std::rc::Rc::clone(&transpiler);
-
-    (&mut (*transpiler).borrow_mut())
-      .typechecker
-      .set_parent(transpiler_clone);
-
-    // let a = *(transpiler.as_ref());
-
-    // return a;
-
-    // return A(transpiler);
+    let transpiler = Box::leak(transpiler);
+    let ptr: *mut TranspileVisitor<'a> = transpiler;
+    transpiler.typechecker.set_parent(ptr);
     return transpiler;
   }
 }
@@ -310,11 +300,9 @@ pub fn transform(
 
 impl<'a> VisitMut for TranspileVisitor<'a> {
   fn visit_mut_expr(&mut self, n: &mut Expr) {
-    println!("HERE! {n:?}");
     n.visit_mut_children_with(self);
 
     if let Expr::JSXElement(_) = n {
-      println!("REPLACE!");
       n.map_with_mut(|n| {
         let Expr::JSXElement(jsx_element) = n else {
           unreachable!()

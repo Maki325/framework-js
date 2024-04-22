@@ -20,3 +20,10 @@ https://swc.rs/docs/plugin/ecmascript/getting-started
 
 `transforms::testing::test_inline`
 Very important when figuring out how to apply plugins lol
+
+
+packages/react-dom-bindings/src/server/ReactFizzConfigDOM.js:889
+function pushStyleAttribute(
+  target: Array<Chunk | PrecomputedChunk>,
+  style: Object,
+): void

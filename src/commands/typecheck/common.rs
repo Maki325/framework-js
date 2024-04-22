@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
   specs::type_info::{ExportType, Exports},
   utils,
@@ -19,7 +17,7 @@ pub struct TypecheckerCommon<'a, P: VisitMut> {
   pub function_variable_types: Vec<Exports>,
   last_arrow_function_return_type: ExportType,
 
-  parent: Option<Rc<RefCell<Box<P>>>>,
+  parent: *mut P,
 }
 
 impl<'a, P: VisitMut> TypecheckerCommon<'a, P> {
@@ -33,7 +31,7 @@ impl<'a, P: VisitMut> TypecheckerCommon<'a, P> {
       function_variable_types: vec![Exports::new()],
       last_arrow_function_return_type: ExportType::Other,
 
-      parent: None,
+      parent: std::ptr::null_mut(),
     };
   }
 
@@ -83,19 +81,19 @@ impl<'a, P: VisitMut> TypecheckerCommon<'a, P> {
     None
   }
 
-  pub fn set_parent(&mut self, parent: Rc<RefCell<Box<P>>>) {
-    self.parent = Some(parent);
+  pub fn set_parent(&mut self, parent: *mut P) {
+    self.parent = parent;
   }
 }
 
 macro_rules! get_parent {
   ($self: ident) => {
-    &mut (**(&mut (*$self.parent.clone().unwrap()).borrow_mut()))
+    unsafe { $self.parent.as_mut() }.unwrap()
   };
 }
 
-impl<'a, P: VisitMut> VisitMut for TypecheckerCommon<'a, P> {
-  fn visit_mut_arrow_expr(&mut self, arrow: &mut swc_ecma_ast::ArrowExpr) {
+impl<'a, P: VisitMut> TypecheckerCommon<'a, P> {
+  pub fn visit_mut_arrow_expr(&mut self, arrow: &mut swc_ecma_ast::ArrowExpr) {
     self.function_variable_types.push(Exports::new());
 
     let return_type = match &*arrow.body {
@@ -124,7 +122,7 @@ impl<'a, P: VisitMut> VisitMut for TypecheckerCommon<'a, P> {
     self.function_variable_types.pop();
   }
 
-  fn visit_mut_assign_expr(&mut self, assign: &mut swc_ecma_ast::AssignExpr) {
+  pub fn visit_mut_assign_expr(&mut self, assign: &mut swc_ecma_ast::AssignExpr) {
     assign.visit_mut_children_with(get_parent!(self));
 
     let is_jsx = self.get_expr_type(&assign.right);
@@ -141,7 +139,7 @@ impl<'a, P: VisitMut> VisitMut for TypecheckerCommon<'a, P> {
     }
   }
 
-  fn visit_mut_var_declarator(&mut self, declarator: &mut VarDeclarator) {
+  pub fn visit_mut_var_declarator(&mut self, declarator: &mut VarDeclarator) {
     declarator.visit_mut_children_with(get_parent!(self));
 
     if let Some(init) = &declarator.init {
@@ -157,7 +155,7 @@ impl<'a, P: VisitMut> VisitMut for TypecheckerCommon<'a, P> {
     }
   }
 
-  fn visit_mut_return_stmt(&mut self, ret: &mut ReturnStmt) {
+  pub fn visit_mut_return_stmt(&mut self, ret: &mut ReturnStmt) {
     let Some(arg) = &ret.arg else {
       ret.visit_mut_children_with(get_parent!(self));
       return;
@@ -168,7 +166,7 @@ impl<'a, P: VisitMut> VisitMut for TypecheckerCommon<'a, P> {
     ret.visit_mut_children_with(get_parent!(self));
   }
 
-  fn visit_mut_fn_decl(&mut self, decl: &mut swc_ecma_ast::FnDecl) {
+  pub fn visit_mut_fn_decl(&mut self, decl: &mut swc_ecma_ast::FnDecl) {
     self.function_variable_types.push(Exports::new());
     decl.visit_mut_children_with(get_parent!(self));
     self.function_variable_types.pop();
